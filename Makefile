@@ -2,7 +2,8 @@
 DEBUG=1
 
 CC=vc
-CFLAGS=-c99
+CFLAGS=-c99 -g
+LDFLAGS=-g -nostdlib
 
 SRCS=device.c boot.c
 HDRS=device.h boot.h debug.h
@@ -20,7 +21,7 @@ ext.rom: romdisk.device
 	romtool build -o $@ -t ext $<
 
 romdisk.device: $(OBJS)
-	vc $^ -o $@ -nostdlib
+	vc $^ -o $@ $(LDFLAGS)
 
 $(SRCS): $(HDRS)
 

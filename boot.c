@@ -8,7 +8,8 @@
 
 static char execName[] = "romdisk.device";
 static char dosName[] = "rom0";
-static ULONG parmPkt[] = {
+
+ULONG parmPkt[] = {
   (ULONG)dosName,
   (ULONG)execName,
   0, /* unit */
@@ -27,7 +28,7 @@ static ULONG parmPkt[] = {
   0,                  /* lower cylinder */
   79,                 /* upper cylinder */
   5,                  /* number of buffers */
-  MEMF_CHIP,          /* type of memory for buffers */
+  MEMF_PUBLIC,        /* type of memory for buffers */
   (~0 >> 1),          /* largest transfer size (largest signed #) */
   ~1,                 /* addmask */
   0,                  /* boot priority */
