@@ -4,14 +4,13 @@
 #include <dos/dos.h>
 
 #include <proto/exec.h>
+#include <proto/expansion.h>
 
 #include <SDI/SDI_compiler.h>
 
-#define VERSION     1
-#define REVISION    1
-#define VER_STR     "1.1"
-#define DATE        "04.07.2016"
-#define NAME        "romdisk.device"
+#include "debug.h"
+#include "device.h"
+#include "boot.h"
 
 #define VERS        NAME " " VER_STR
 #define VSTRING     NAME " " VER_STR " (" DATE ")\r\n"
@@ -26,32 +25,23 @@ static const char UserLibName[] = NAME;
 static const char UserLibVer[]  = VSTRING;
 static const char UserLibID[]   = VERSTAG;
 
-struct LibraryHeader
-{
-  struct Library  libBase;
-  struct Library *sysBase;
-  ULONG           segList;
-};
-
-#define SysBase base->sysBase
-
 #define LIBFUNC SAVEDS ASM
 
-LIBFUNC static struct LibraryHeader * DevInit    (REG(a0, BPTR Segment),
-                                                  REG(d0, struct LibraryHeader *lh),
-                                                  REG(a6, struct ExecBase *sb));
-LIBFUNC static BPTR                   DevExpunge (REG(a6, struct LibraryHeader *base));
-LIBFUNC static struct LibraryHeader * DevOpen    (REG(a1, struct IOStdReq *ior),
-                                                  REG(d0, ULONG unit),
-                                                  REG(d1, ULONG flags),
-                                                  REG(a6, struct LibraryHeader *base));
-LIBFUNC static BPTR                   DevClose   (REG(a1, struct IOStdReq *ior),
-                                                  REG(a6, struct LibraryHeader *base));
-LIBFUNC static LONG                   DevNull    (void);
-LIBFUNC static void                   DevBeginIO(REG(a1, struct IOStdReq *ior),
-                                                 REG(a6, struct LibraryHeader *base));
-LIBFUNC static LONG                   DevAbortIO(REG(a1, struct IOStdReq *ior),
-                                                 REG(a6, struct LibraryHeader *base));
+LIBFUNC static struct DevBase * DevInit    (REG(a0, BPTR Segment),
+                                            REG(d0, struct DevBase *lh),
+                                            REG(a6, struct ExecBase *sb));
+LIBFUNC static BPTR             DevExpunge (REG(a6, struct DevBase *base));
+LIBFUNC static struct DevBase * DevOpen    (REG(a1, struct IOStdReq *ior),
+                                            REG(d0, ULONG unit),
+                                            REG(d1, ULONG flags),
+                                            REG(a6, struct DevBase *base));
+LIBFUNC static BPTR             DevClose   (REG(a1, struct IOStdReq *ior),
+                                            REG(a6, struct DevBase *base));
+LIBFUNC static LONG             DevNull    (void);
+LIBFUNC static void             DevBeginIO(REG(a1, struct IOStdReq *ior),
+                                           REG(a6, struct DevBase *base));
+LIBFUNC static LONG             DevAbortIO(REG(a1, struct IOStdReq *ior),
+                                           REG(a6, struct DevBase *base));
 
 static const APTR LibVectors[] =
 {
@@ -66,7 +56,7 @@ static const APTR LibVectors[] =
 
 static const ULONG LibInitTab[] =
 {
-  sizeof(struct LibraryHeader),
+  sizeof(struct DevBase),
   (ULONG)LibVectors,
   (ULONG)NULL,
   (ULONG)DevInit
@@ -92,9 +82,9 @@ static const USED_VAR struct Resident ROMTag =
 
 /* ----- Functions ----- */
 
-LIBFUNC static struct LibraryHeader * DevInit(REG(a0, BPTR Segment),
-                                              REG(d0, struct LibraryHeader *base),
-                                              REG(a6, struct ExecBase *sb))
+LIBFUNC static struct DevBase * DevInit(REG(a0, BPTR Segment),
+                                        REG(d0, struct DevBase *base),
+                                        REG(a6, struct ExecBase *sb))
 {
   base->libBase.lib_Node.ln_Type = NT_LIBRARY;
   base->libBase.lib_Node.ln_Pri  = 0;
@@ -107,10 +97,12 @@ LIBFUNC static struct LibraryHeader * DevInit(REG(a0, BPTR Segment),
   base->segList = Segment;
   base->sysBase = (APTR)sb;
 
+  boot_init(base);
+
   return base;
 }
 
-LIBFUNC static BPTR DevExpunge(REG(a6, struct LibraryHeader *base))
+LIBFUNC static BPTR DevExpunge(REG(a6, struct DevBase *base))
 {
   BPTR rc;
 
@@ -128,11 +120,12 @@ LIBFUNC static BPTR DevExpunge(REG(a6, struct LibraryHeader *base))
   return rc;
 }
 
-LIBFUNC static struct LibraryHeader * DevOpen(REG(a1, struct IOStdReq *ior),
-                                              REG(d0, ULONG unit),
-                                              REG(d1, ULONG flags),
-                                              REG(a6, struct LibraryHeader *base))
+LIBFUNC static struct DevBase * DevOpen(REG(a1, struct IOStdReq *ior),
+                                        REG(d0, ULONG unit),
+                                        REG(d1, ULONG flags),
+                                        REG(a6, struct DevBase *base))
 {
+  D(("DevOpen(%lx,%ld,%ld)\n", ior, unit, flags));
   base->libBase.lib_Flags &= ~LIBF_DELEXP;
   base->libBase.lib_OpenCnt++;
 
@@ -140,8 +133,9 @@ LIBFUNC static struct LibraryHeader * DevOpen(REG(a1, struct IOStdReq *ior),
 }
 
 LIBFUNC static BPTR DevClose(REG(a1, struct IOStdReq *ior),
-                             REG(a6, struct LibraryHeader *base))
+                             REG(a6, struct DevBase *base))
 {
+  D(("DevClose(%lx)\n", ior));
   if(base->libBase.lib_OpenCnt > 0 &&
      --base->libBase.lib_OpenCnt == 0)
   {
@@ -160,13 +154,14 @@ LIBFUNC static LONG DevNull(void)
 }
 
 LIBFUNC static void DevBeginIO(REG(a1, struct IOStdReq *ior),
-                               REG(a6, struct LibraryHeader *base))
+                               REG(a6, struct DevBase *base))
 {
-
+  D(("DevBeginIO(%lx)\n", ior));
 }
 
 LIBFUNC static LONG DevAbortIO(REG(a1, struct IOStdReq *ior),
-                               REG(a6, struct LibraryHeader *base))
+                               REG(a6, struct DevBase *base))
 {
+  D(("DevAbortIO(%lx)\n", ior));
   return 0;
 }
