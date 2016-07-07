@@ -8,9 +8,7 @@ struct DevBase
 {
   struct Library  libBase;
   struct Library *sysBase;
-  struct Library *expansionBase;
   ULONG           segList;
 };
 
 #define SysBase base->sysBase
-#define ExpansionBase base->expansionBase

@@ -38,9 +38,10 @@ ULONG parmPkt[] = {
 BOOL boot_init(struct DevBase *base)
 {
   BOOL ok = FALSE;
+  struct Library *ExpansionBase;
 
-  base->expansionBase = (struct Library *)OpenLibrary("expansion.library", 36);
-  if(base->expansionBase != NULL) {
+  ExpansionBase = (struct Library *)OpenLibrary("expansion.library", 36);
+  if(ExpansionBase != NULL) {
     struct ConfigDev *cd = AllocConfigDev();
     D(("got expansion. config dev=%08lx\n", cd));
     if(cd != NULL) {
@@ -65,7 +66,7 @@ BOOL boot_init(struct DevBase *base)
         D(("add boot node=%d\n", ok));
       }
     }
-    CloseLibrary(base->expansionBase);
+    CloseLibrary(ExpansionBase);
   }
   return ok;
 }
