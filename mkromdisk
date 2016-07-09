@@ -1,0 +1,38 @@
+#!/usr/bin/env python2.7
+#
+# mkromdisk - create romboot'able disk image
+#
+
+import os
+import sys
+import argparse
+import subprocess
+
+desc="create romboot'able disk image suitable for romdisk.device"
+
+
+def parse_args():
+  """parse args and return (args, opts)"""
+  parser = argparse.ArgumentParser(description=desc)
+
+  # global options
+  parser.add_argument('out_disk', help="disk image to be created")
+  parser.add_argument('disk_dir', help="directory with disk contents")
+
+  return parser.parse_args()
+
+
+def mkromdisk(out_disk, disk_dir):
+  cmd = ['xdftool', '-f', out_disk, 'pack', disk_dir, 'chs=40,2,11', 'DOS0']
+  subprocess.check_call(cmd)
+
+
+def main():
+  # parse args and init logging
+  args = parse_args()
+  return mkromdisk(args.out_disk, args.disk_dir)
+
+
+# ----- entry point -----
+if __name__ == '__main__':
+  sys.exit(main())

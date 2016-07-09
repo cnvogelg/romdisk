@@ -22,14 +22,18 @@ OBJS+=$(patsubst %.s,%.o,$(ASRCS))
 
 all: ext.rom
 
-ext.rom: romdisk.device
-	romtool -v build -o $@ -t ext $< test.hdf
+ext.rom: romdisk.device rom.hdf
+	romtool -v build -o $@ -t ext $^
 
 romdisk.device: $(OBJS)
 	vc $^ -o $@ $(LDFLAGS)
+
+rom.hdf: ROMDISK
+	./mkromdisk $@ ROMDISK
 
 $(SRCS): $(HDRS)
 
 clean:
 	rm -f *.o
 	rm -f romdisk.device
+	rm -f rom.hdf
