@@ -3,13 +3,18 @@
 #include <proto/exec.h>
 #include <proto/expansion.h>
 
+#include <exec/libraries.h>
 #include <libraries/expansion.h>
 
 #include "debug.h"
 #include "device.h"
 
+#include <SDI/SDI_compiler.h>
+
 static char execName[] = "romdisk.device";
 static char dosName[] = "rom";
+
+extern struct DiagArea myDiagArea;
 
 ULONG parmPkt[] = {
   (ULONG)dosName,
@@ -47,16 +52,29 @@ BOOL boot_init(struct DevBase *base)
     struct ConfigDev *cd = AllocConfigDev();
     D(("got expansion. config dev=%08lx\n", cd));
     if(cd != NULL) {
+
+      /* get diag address */
+      ULONG diag_addr = (ULONG)&myDiagArea;
+      ULONG diag_base = diag_addr & ~0xffff;
+      ULONG diag_off  = diag_addr & 0xffff;
+      D(("diag_addr: base=%08lx offset=%04lx\n", diag_base, diag_off));
+
       /* fill faked config dev */
       cd->cd_Flags = 0;
-      cd->cd_BoardAddr = (APTR)0xe00000;
-      cd->cd_BoardSize = 0x080000;
+      cd->cd_BoardAddr = (APTR)diag_base;
+      cd->cd_BoardSize = 0x010000;
       cd->cd_Driver = (APTR)base;
       struct ExpansionRom *rom = &cd->cd_Rom;
-      rom->er_Type = 1;
+      rom->er_Type = ERT_ZORROII | ERTF_DIAGVALID | 1; /* size=64 KiB */
+      rom->er_Flags = ERFF_NOSHUTUP;
       rom->er_Product = 42;
       rom->er_Manufacturer = 2011; /* hack id */
       rom->er_SerialNumber = 1;
+      rom->er_InitDiagVec = (UWORD)diag_off;
+
+      /* fake copy of diag area. the pointer is stored in er_Reserved0c..0f */
+      ULONG *ptr = (ULONG *)&rom->er_Reserved0c;
+      *ptr = diag_addr;
 
       AddConfigDev(cd);
 
