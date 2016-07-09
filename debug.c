@@ -10,7 +10,7 @@ void __KPutCh(__reg("a6") void *, __reg("d0") UBYTE ch) = "\tjsr\t-516(a6)";
 #define SIZE 80
 
 struct buffer {
-  char buf[SIZE];
+  UBYTE buf[SIZE];
   int pos;
 };
 

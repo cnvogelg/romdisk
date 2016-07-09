@@ -1,7 +1,9 @@
 #include <exec/types.h>
 #include <exec/libraries.h>
 #include <exec/resident.h>
+#include <exec/errors.h>
 #include <dos/dos.h>
+#include <devices/trackdisk.h>
 
 #include <proto/exec.h>
 #include <proto/expansion.h>
@@ -11,6 +13,7 @@
 #include "debug.h"
 #include "device.h"
 #include "boot.h"
+#include "disk.h"
 
 #define VERS        NAME " " VER_STR
 #define VSTRING     NAME " " VER_STR " (" DATE ")\r\n"
@@ -71,7 +74,7 @@ static const USED_VAR struct Resident ROMTag =
   RTF_AUTOINIT | RTF_COLDSTART,
   VERSION,
   NT_DEVICE,
-  0,
+  0, /* prio */
   (APTR)UserLibName,
   (APTR)UserLibVer,
   (APTR)LibInitTab
@@ -97,6 +100,7 @@ LIBFUNC static struct DevBase * DevInit(REG(a0, BPTR Segment),
   base->segList = Segment;
   base->sysBase = (APTR)sb;
 
+  disk_init(base);
   boot_init(base);
 
   return base;
@@ -156,12 +160,56 @@ LIBFUNC static LONG DevNull(void)
 LIBFUNC static void DevBeginIO(REG(a1, struct IOStdReq *ior),
                                REG(a6, struct DevBase *base))
 {
-  D(("DevBeginIO(%lx)\n", ior));
+  UWORD cmd = ior->io_Command;
+  D(("DevBeginIO(%lx) cmd=%lx\n", ior, cmd));
+
+  /* assume no error */
+  ior->io_Error = 0;
+
+  switch(cmd) {
+    case CMD_READ:
+      D(("READ: off=%08lx len=%08lx buf=%08lx\n",
+         ior->io_Offset, ior->io_Length, ior->io_Data));
+      disk_read(ior, base);
+      break;
+    case TD_CHANGENUM:
+    case TD_CHANGESTATE:
+      ior->io_Actual = 0;
+      break;
+    case TD_PROTSTATUS:
+      ior->io_Actual = 1; /* is write protected */
+      break;
+      /* ignore the following commands */
+    case CMD_UPDATE:
+    case CMD_CLEAR:
+    case TD_MOTOR:
+    case TD_SEEK:
+    case TD_REMOVE:
+      D(("NOP\n"));
+      break;
+      /* report invalid write */
+    case CMD_WRITE:
+    case TD_FORMAT:
+      D(("Write!?\n"));
+      ior->io_Error = TDERR_WriteProt;
+      break;
+      /* report invalid command */
+    default:
+      D(("??\n"));
+      ior->io_Error = IOERR_NOCMD;
+      break;
+  }
+
+  /* reply message */
+  ior->io_Message.mn_Node.ln_Type = NT_MESSAGE;
+  if (!(ior->io_Flags & IOF_QUICK)) {
+    ReplyMsg(&ior->io_Message);
+  }
 }
 
 LIBFUNC static LONG DevAbortIO(REG(a1, struct IOStdReq *ior),
                                REG(a6, struct DevBase *base))
 {
   D(("DevAbortIO(%lx)\n", ior));
-  return 0;
+  return 1;
 }

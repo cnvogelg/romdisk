@@ -3,11 +3,13 @@
 #include <proto/exec.h>
 #include <proto/expansion.h>
 
+#include <libraries/expansion.h>
+
 #include "debug.h"
 #include "device.h"
 
 static char execName[] = "romdisk.device";
-static char dosName[] = "rom0";
+static char dosName[] = "rom";
 
 ULONG parmPkt[] = {
   (ULONG)dosName,
@@ -17,22 +19,22 @@ ULONG parmPkt[] = {
 
   /* env block */
   16,                 /* size of table */
-  512>>2,             /* # longwords in a block */
-  0,                  /* sector origin -- unused */
-  2,                  /* number of surfaces */
-  1,                  /* secs per logical block -- leave as 1 */
-  11,                 /* blocks per track */
-  2,                  /* reserved blocks -- 2 boot blocks */
-  0,                  /* ?? -- unused */
-  0,                  /* interleave */
-  0,                  /* lower cylinder */
-  79,                 /* upper cylinder */
-  5,                  /* number of buffers */
-  MEMF_PUBLIC,        /* type of memory for buffers */
-  (~0 >> 1),          /* largest transfer size (largest signed #) */
-  ~1,                 /* addmask */
-  0,                  /* boot priority */
-  0x444f5300          /* dostype: 'DOS\0' */
+  512>>2,             /* 0 # longwords in a block */
+  0,                  /* 1 sector origin -- unused */
+  2,                  /* 2 number of surfaces */
+  1,                  /* 3 secs per logical block -- leave as 1 */
+  11,                 /* 4 blocks per track */
+  2,                  /* 5 reserved blocks -- 2 boot blocks */
+  0,                  /* 6 ?? -- unused */
+  0,                  /* 7 interleave */
+  0,                  /* 8 lower cylinder */
+  39,                 /* 9 upper cylinder */
+  5,                  /* a number of buffers */
+  MEMF_PUBLIC,        /* b type of memory for buffers */
+  (~0 >> 1),          /* c largest transfer size (largest signed #) */
+  ~1,                 /* d addmask */
+  0,                  /* e boot priority */
+  0x444f5300          /* f dostype: 'DOS\0' */
 };
 
 BOOL boot_init(struct DevBase *base)
@@ -62,7 +64,7 @@ BOOL boot_init(struct DevBase *base)
       D(("got dos node=%08lx\n", dn));
       if(dn != NULL) {
         /* now add boot node */
-        ok = AddBootNode( 0, 0, dn, cd );
+        ok = AddBootNode( 0, ADNF_STARTPROC, dn, cd );
         D(("add boot node=%d\n", ok));
       }
     }

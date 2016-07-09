@@ -9,6 +9,7 @@ struct DevBase
   struct Library  libBase;
   struct Library *sysBase;
   ULONG           segList;
+  UBYTE          *disk_addr;
 };
 
 #define SysBase base->sysBase
