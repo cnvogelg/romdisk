@@ -4,12 +4,13 @@
 #include "debug.h"
 #include "device.h"
 
-ULONG disk_size = 0x80000;
+const ULONG disk_size = 0x80000;
+extern ULONG theEnd;
 
 void disk_init(struct DevBase *base)
 {
   /* HACK: point after device in ROM */
-  base->disk_addr = (UBYTE *)&disk_size + 4;
+  base->disk_addr = (UBYTE *)(&theEnd + 1);
   D(("disk_addr=%08lx\n", base->disk_addr));
 }
 

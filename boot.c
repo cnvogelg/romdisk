@@ -11,12 +11,12 @@
 
 #include <SDI/SDI_compiler.h>
 
-static char execName[] = "romdisk.device";
-static char dosName[] = "rom";
+static const char execName[] = "romdisk.device";
+static const char dosName[] = "rom";
 
 extern struct DiagArea myDiagArea;
 
-ULONG parmPkt[] = {
+const ULONG parmPkt[] = {
   (ULONG)dosName,
   (ULONG)execName,
   0, /* unit */

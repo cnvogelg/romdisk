@@ -4,7 +4,7 @@ TC_DIR=/opt/m68k-amigaos
 DEBUG=1
 
 CC=vc
-CFLAGS=-c99 -g
+CFLAGS=-c99 -g -sc
 LDFLAGS=-g -nostdlib
 AS=vasmm68k_mot -Fhunk -I$(TC_DIR)/os-include
 
