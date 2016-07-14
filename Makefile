@@ -1,39 +1,18 @@
 
-TC_DIR=/opt/m68k-amigaos
-
-DEBUG=1
-
-CC=vc
-CFLAGS=-c99 -g -sc
-LDFLAGS=-g -nostdlib
-AS=vasmm68k_mot -Fhunk -I$(TC_DIR)/os-include
-
-SRCS=device.c boot.c disk.c
-ASRCS=diag.s
-HDRS=device.h boot.h disk.h debug.h
-
-ifeq "$(DEBUG)" "1"
-CFLAGS+=-DDEBUG=1
-SRCS+=debug.c
-endif
-
-OBJS=$(patsubst %.c,%.o,$(SRCS))
-OBJS+=$(patsubst %.s,%.o,$(ASRCS))
-
 all: ext.rom
 
-ext.rom: romdisk.device rom.hdf
+ext.rom: BUILD/romdisk.device sample.rodi
 	romtool -v build -o $@ -t ext $^
 
-romdisk.device: $(OBJS)
-	vc $^ -o $@ $(LDFLAGS)
+BUILD/romdisk.device:
+	$(MAKE) -C src
 
-rom.hdf: ROMDISK
-	./mkromdisk $@ ROMDISK
+sample.rodi: ROMDISK
+	./mkromdisk $@ -d ROMDISK
 
-$(SRCS): $(HDRS)
+clean_all: clean
+	rm -rf BUILD
 
 clean:
-	rm -f *.o
-	rm -f romdisk.device
-	rm -f rom.hdf
+	rm -f sample.rodi
+	rm -f ext.rom

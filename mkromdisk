@@ -7,30 +7,139 @@ import os
 import sys
 import argparse
 import subprocess
+import logging
+import struct
 
-desc="create romboot'able disk image suitable for romdisk.device"
+LOG_FORMAT='%(asctime)-15s  %(levelname)-10s  %(message)s'
+DESC="create romboot'able disk image suitable for romdisk.device"
+
+
+def create_disk_image(temp_prefix, disk_dir, geo, dostype):
+  temp_hdf = temp_prefix + ".hdf"
+  geo_str = "chs=%d,%d,%d" % tuple(geo)
+  cmd = ['xdftool', '-f', temp_hdf, 'pack', disk_dir, dostype, geo_str]
+  logging.info("mastering image with: %s", " ".join(cmd))
+  res = subprocess.call(cmd)
+  if res != 0:
+    logging.error("Error mastering image: return code=%d", res)
+    return None
+  else:
+    return temp_hdf
+
+
+def gen_disk_header(geo, dostype, disk_format=0, boot_prio=5):
+  tag = "RODI"
+  ver_fmt = struct.pack(">HH", 1, disk_format)
+  dos_name = "rom" + chr(0)
+  chs = struct.pack(">III", geo[0], geo[1], geo[2])
+  prio_dt = struct.pack(">iI", boot_prio, dostype)
+  return tag + ver_fmt + dos_name + chs + prio_dt
+
+
+def mkromdisk(out_disk, geometry, from_dir=None, from_image=None,
+              temp_prefix="temp", dostype="DOS0", boot_prio=5):
+  # create from dir
+  if from_dir is not None:
+    img = create_disk_image(temp_prefix, from_dir, geometry, dostype)
+    is_temp = True
+    if img is None:
+      return 1
+  elif from_image is not None:
+    img = from_image
+    is_temp = False
+    logging.info("using given image: %s", img)
+  else:
+    logging.error("Neither image not dir given as input!")
+    return 2
+
+  # check input image
+  if not os.path.isfile(img):
+    logging.error("can't find image file: %s", img)
+  # read image
+  with open(img, "rb") as fh:
+    img_data = fh.read()
+  # remove temp image
+  if is_temp:
+    logging.info("removing temp image: %s", img)
+    os.remove(img)
+
+  # check size
+  cyls = geometry[0]
+  heads = geometry[1]
+  secs = geometry[2]
+  image_size = cyls * heads * secs * 512
+  file_size = len(img_data)
+  if file_size != image_size:
+    logging.error("disk image has wrong size: expect=%d but got=%d", image_size, file_size)
+    return 3
+
+  # extract dostype
+  img_dostype = struct.unpack_from(">I", img_data, 0)[0]
+  logging.info("dostype found: %08x %s", img_dostype, img_data[0:4])
+
+  # generate romdisk file
+  logging.info("generating romdisk file: %s", out_disk)
+  with open(out_disk, "wb") as fh:
+    hdr = gen_disk_header(geometry, img_dostype, boot_prio=boot_prio)
+    fh.write(hdr)
+    fh.write(img_data)
+
+  # done
+  size = os.path.getsize(out_disk)
+  logging.info("created image with %d bytes", size)
+  return 0
+
+
+def parse_geo(geo):
+  if geo == 'adf':
+    return (80,2,11)
+  elif geo == 'mini': # mini disk image
+    return (40,2,11)
+  else:
+    disk_geo=map(int,geo.split(","))
+    assert len(disk_geo) == 3
+    return disk_geo
 
 
 def parse_args():
   """parse args and return (args, opts)"""
-  parser = argparse.ArgumentParser(description=desc)
+  parser = argparse.ArgumentParser(description=DESC)
 
   # global options
   parser.add_argument('out_disk', help="disk image to be created")
-  parser.add_argument('disk_dir', help="directory with disk contents")
+  parser.add_argument('-d', '--dir', default=None,
+                      help="create romdisk image from given directory")
+  parser.add_argument('-i', '--image', default=None,
+                      help="create romdisk image from given disk image")
+  parser.add_argument('-t', '--temp-prefix', default="temp",
+                      help="prefix for intermediate files")
+  parser.add_argument('-g', '--geometry', default="40,2,11",
+                      help="disk image geometry (cylinders, heads, sectors)")
+  parser.add_argument('-D', '--dostype', default="ffs",
+                      help="dostype used for image mastering with xdftool")
+  parser.add_argument('-p', '--boot-prio', default=5, type=int,
+                      help="boot priority for romdisk")
 
   return parser.parse_args()
 
 
-def mkromdisk(out_disk, disk_dir):
-  cmd = ['xdftool', '-f', out_disk, 'pack', disk_dir, 'chs=40,2,11', 'DOS0']
-  subprocess.check_call(cmd)
-
-
 def main():
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
   # parse args and init logging
   args = parse_args()
-  return mkromdisk(args.out_disk, args.disk_dir)
+  # extract disk geo
+  try:
+    geo = parse_geo(args.geometry)
+    return mkromdisk(args.out_disk,
+                     from_dir=args.dir,
+                     from_image=args.image,
+                     temp_prefix=args.temp_prefix,
+                     geometry=geo,
+                     dostype=args.dostype,
+                     boot_prio=args.boot_prio)
+  except IOError as e:
+    logging.error("FAILED with %s", e)
+    return 1
 
 
 # ----- entry point -----

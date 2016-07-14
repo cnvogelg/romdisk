@@ -1,4 +1,4 @@
-*.o
-*.device
-*.rom
+BUILD
+ext.rom
+sample.rodi
 
