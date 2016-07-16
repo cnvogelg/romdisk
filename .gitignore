@@ -1,4 +1,4 @@
 BUILD
-ext.rom
-sample.rodi
+*.rom
+*.rodi
 

@@ -3,18 +3,17 @@
 # toolchain dire
 TC_DIR=/opt/m68k-amigaos
 
-# enable debugging?
-DEBUG=1
-
 CC=vc
 CFLAGS=-c99 -g -sc
-LDFLAGS=-g -nostdlib
+LDFLAGS=-g -nostdlib -lvcs
 AS=vasmm68k_mot
 ASFLAGS=-Fhunk -I$(TC_DIR)/os-include
 
 SRCS=device.c boot.c disk.c mydev.c
-ASRCS=diag.s
+ASRCS=rnc.s diag.s
 HDRS=boot.h disk.h debug.h mydev.h
+
+VPATH=rnc
 
 ifeq "$(DEBUG)" "1"
 CFLAGS+=-DDEBUG=1
@@ -36,7 +35,7 @@ $(DEVICE): $(OBJS)
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-$(SRCS): $(HDRS)
+$(OBJS): $(SRCS) $(HDRS)
 
 $(BUILD_DIR)/%.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<

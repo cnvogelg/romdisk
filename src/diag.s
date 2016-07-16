@@ -1,5 +1,3 @@
-  section code
-
   include "exec/types.i"
   include "exec/nodes.i"
   include "exec/resident.i"

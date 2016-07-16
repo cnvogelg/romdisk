@@ -125,24 +125,24 @@ LIBFUNC static struct DevBase * DevOpen(REG(a1, struct IOStdReq *ior),
                                         REG(a6, struct DevBase *base))
 {
   D(("DevOpen(%lx,%ld,%ld)\n", ior, unit, flags));
-  base = mydev_open(ior, unit, flags, base);
 
   if(base != NULL) {
     base->libBase.lib_Flags &= ~LIBF_DELEXP;
     base->libBase.lib_OpenCnt++;
   }
 
-  return base;
+  return mydev_open(ior, unit, flags, base);
 }
 
 LIBFUNC static BPTR DevClose(REG(a1, struct IOStdReq *ior),
                              REG(a6, struct DevBase *base))
 {
   D(("DevClose(%lx)\n", ior));
+
   mydev_close(ior, base);
 
-  if(base->libBase.lib_OpenCnt > 0 &&
-     --base->libBase.lib_OpenCnt == 0)
+  base->libBase.lib_OpenCnt--;
+  if(base->libBase.lib_OpenCnt == 0)
   {
     if(base->libBase.lib_Flags & LIBF_DELEXP)
     {

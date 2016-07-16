@@ -15,12 +15,9 @@
 struct DevBase *mydev_init(struct DevBase *base)
 {
   /* try to find disk in ROM */
-  base->diskHeader = disk_find(base);
-  if(base->diskHeader == NULL) {
+  if(!disk_setup(base)) {
     return NULL;
   }
-
-  base->diskData = (UBYTE *)(base->diskHeader + 1);
 
   boot_init(base);
 
@@ -34,11 +31,29 @@ void mydev_expunge(struct DevBase *base)
 
 struct DevBase * mydev_open(struct IOStdReq *ior, ULONG unit, ULONG flags, struct DevBase *base)
 {
+  /* only unit 0 allowed */
+  if(unit != 0) {
+    D(("only unit 0 allowed!\n"));
+    return NULL;
+  }
+
+  if(base->libBase.lib_OpenCnt == 1) {
+    D(("disk_open\n"));
+    if(!disk_open(base)) {
+      D(("disk_open failed!\n"));
+      return NULL;
+    }
+  }
+
   return base;
 }
 
 void mydev_close(struct IOStdReq *ior, struct DevBase *base)
 {
+  if(base->libBase.lib_OpenCnt == 1) {
+    D(("disk_close\n"));
+    disk_close(base);
+  }
 }
 
 void mydev_begin_io(struct IOStdReq *ior, struct DevBase *base)
@@ -51,7 +66,7 @@ void mydev_begin_io(struct IOStdReq *ior, struct DevBase *base)
     case CMD_READ:
       D(("READ: off=%08lx len=%08lx buf=%08lx\n",
          ior->io_Offset, ior->io_Length, ior->io_Data));
-      disk_read(ior, base);
+      base->readFunc(ior, base);
       break;
     case TD_CHANGENUM:
     case TD_CHANGESTATE:
@@ -82,10 +97,12 @@ void mydev_begin_io(struct IOStdReq *ior, struct DevBase *base)
   }
 
   /* reply message */
+  D(("  Reply\n"));
   ior->io_Message.mn_Node.ln_Type = NT_MESSAGE;
   if (!(ior->io_Flags & IOF_QUICK)) {
     ReplyMsg(&ior->io_Message);
   }
+  D(("  Done\n"));
 }
 
 LONG mydev_abort_io(struct IOStdReq *ior, struct DevBase *base)

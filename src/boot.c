@@ -42,7 +42,7 @@ static ULONG *create_param_pkt(struct DevBase *base, ULONG *size)
   paramPkt[12] = 0;                 /* 7 interleave */
   paramPkt[13] = 0;                 /* 8 lower cylinder */
   paramPkt[14] = hdr->cylinders-1;  /* 9 upper cylinder */
-  paramPkt[15] = 5;                 /* a number of buffers */
+  paramPkt[15] = hdr->num_buffers;  /* a number of buffers */
   paramPkt[16] = MEMF_PUBLIC;       /* b type of memory for buffers */
   paramPkt[17] = (~0 >> 1);         /* c largest transfer size (largest signed #) */
   paramPkt[18] = ~1;                /* d addmask */
