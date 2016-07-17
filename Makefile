@@ -1,23 +1,28 @@
+FORMAT?=raw
+ROM_NAME=ext_$(FORMAT).rom
+DISK_NAME=disk_$(FORMAT).rodi
 
-all: ext_raw.rom ext_rnc.rom
+all: raw rnc
+
+rom: $(ROM_NAME)
+
+raw:
+	$(MAKE) FORMAT=raw rom
+
+rnc:
+	$(MAKE) FORMAT=rnc rom
 
 debug:
 	$(MAKE) all DEBUG=1
 
-ext_raw.rom: BUILD/romdisk.device disk_raw.rodi
-	romtool -v build -o $@ -t ext $^
-
-ext_rnc.rom: BUILD/romdisk.device disk_rnc.rodi
+$(ROM_NAME): BUILD/romdisk.device $(DISK_NAME)
 	romtool -v build -o $@ -t ext $^
 
 BUILD/romdisk.device:
 	$(MAKE) -C src
 
-disk_raw.rodi: ROMDISK
-	./mkromdisk $@ -d ROMDISK
-
-disk_rnc.rodi: ROMDISK
-	./mkromdisk $@ -d ROMDISK -f rnc
+$(DISK_NAME): ROMDISK
+	./mkromdisk $@ -d ROMDISK -D ofs -p 15 -f $(FORMAT)
 
 clean_all: clean
 	rm -rf BUILD
