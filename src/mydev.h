@@ -18,6 +18,8 @@ struct DevBase
   struct Library        libBase;
   struct Library        *sysBase;
   ULONG                 segList;
+  struct Library        *dosBase;
+  struct MsgPort        *workerPort;
   /* romdisk */
   struct DiskHeader     *diskHeader;
   UBYTE                 *diskData;
@@ -30,7 +32,12 @@ struct DevBase
   ULONG  curPackId;
 };
 
+#ifndef NO_SYSBASE
 #define SysBase base->sysBase
+#endif
+#ifndef NO_DOSBASE
+#define DOSBase base->dosBase
+#endif
 
 extern struct DevBase *mydev_init(struct DevBase *base);
 extern void mydev_expunge(struct DevBase *base);
@@ -38,3 +45,8 @@ extern struct DevBase * mydev_open(struct IOStdReq *ior, ULONG unit, ULONG flags
 extern void mydev_close(struct IOStdReq *ior, struct DevBase *base);
 extern void mydev_begin_io(struct IOStdReq *ior, struct DevBase *base);
 extern LONG mydev_abort_io(struct IOStdReq *ior, struct DevBase *base);
+
+extern BOOL mydev_worker_init(struct DevBase *base);
+extern void mydev_worker_cmd(struct DevBase *base, struct IOStdReq *ior);
+extern void mydev_worker_exit(struct DevBase *base);
+

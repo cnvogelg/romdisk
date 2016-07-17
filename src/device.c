@@ -125,13 +125,20 @@ LIBFUNC static struct DevBase * DevOpen(REG(a1, struct IOStdReq *ior),
                                         REG(a6, struct DevBase *base))
 {
   D(("DevOpen(%lx,%ld,%ld)\n", ior, unit, flags));
-
-  if(base != NULL) {
-    base->libBase.lib_Flags &= ~LIBF_DELEXP;
-    base->libBase.lib_OpenCnt++;
+  if(base == NULL) {
+    return NULL;
   }
 
-  return mydev_open(ior, unit, flags, base);
+  base->libBase.lib_OpenCnt++;
+
+  struct DevBase *result = mydev_open(ior, unit, flags, base);
+
+  if(result == NULL) {
+    base->libBase.lib_OpenCnt--;
+  } else {
+    base->libBase.lib_Flags &= ~LIBF_DELEXP;
+  }
+  return result;
 }
 
 LIBFUNC static BPTR DevClose(REG(a1, struct IOStdReq *ior),
@@ -161,8 +168,9 @@ LIBFUNC static LONG DevNull(void)
 LIBFUNC static void DevBeginIO(REG(a1, struct IOStdReq *ior),
                                REG(a6, struct DevBase *base))
 {
-  D(("DevBeginIO(%lx) cmd=%lx\n", ior, ior->io_Command));
+  D(("+DevBeginIO(%lx) cmd=%lx\n", ior, ior->io_Command));
   mydev_begin_io(ior, base);
+  D(("-DevBeginIO(%lx)\n", ior));
 }
 
 LIBFUNC static LONG DevAbortIO(REG(a1, struct IOStdReq *ior),

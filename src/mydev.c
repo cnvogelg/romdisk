@@ -11,6 +11,7 @@
 #include "mydev.h"
 #include "boot.h"
 #include "disk.h"
+#include "worker.h"
 
 struct DevBase *mydev_init(struct DevBase *base)
 {
@@ -43,6 +44,11 @@ struct DevBase * mydev_open(struct IOStdReq *ior, ULONG unit, ULONG flags, struc
       D(("disk_open failed!\n"));
       return NULL;
     }
+
+    /* start worker process */
+    if(!worker_start(base)) {
+      return NULL;
+    }
   }
 
   return base;
@@ -53,11 +59,17 @@ void mydev_close(struct IOStdReq *ior, struct DevBase *base)
   if(base->libBase.lib_OpenCnt == 1) {
     D(("disk_close\n"));
     disk_close(base);
+
+    /* stop worker process */
+    worker_stop(base);
   }
 }
 
 void mydev_begin_io(struct IOStdReq *ior, struct DevBase *base)
 {
+  /* mark message as active */
+  ior->io_Message.mn_Node.ln_Type = NT_MESSAGE;
+
   /* assume no error */
   ior->io_Error = 0;
 
@@ -66,8 +78,11 @@ void mydev_begin_io(struct IOStdReq *ior, struct DevBase *base)
     case CMD_READ:
       D(("READ: off=%08lx len=%08lx buf=%08lx\n",
          ior->io_Offset, ior->io_Length, ior->io_Data));
-      base->readFunc(ior, base);
-      break;
+      /* clear quick */
+      ior->io_Flags &= ~IOF_QUICK;
+      /* forward to worker */
+      PutMsg(base->workerPort, &ior->io_Message);
+      return;
     case TD_CHANGENUM:
     case TD_CHANGESTATE:
       ior->io_Actual = 0;
@@ -97,15 +112,39 @@ void mydev_begin_io(struct IOStdReq *ior, struct DevBase *base)
   }
 
   /* reply message */
-  D(("  Reply\n"));
-  ior->io_Message.mn_Node.ln_Type = NT_MESSAGE;
   if (!(ior->io_Flags & IOF_QUICK)) {
     ReplyMsg(&ior->io_Message);
+  } else {
+    /* mark as done */
+    ior->io_Message.mn_Node.ln_Type = NT_REPLYMSG;
   }
-  D(("  Done\n"));
 }
 
 LONG mydev_abort_io(struct IOStdReq *ior, struct DevBase *base)
 {
   return 1;
+}
+
+BOOL mydev_worker_init(struct DevBase *base)
+{
+  return TRUE;
+}
+
+void mydev_worker_cmd(struct DevBase *base, struct IOStdReq *ior)
+{
+  UWORD cmd = ior->io_Command;
+  switch(cmd) {
+    case CMD_READ:
+      D(("READ2: off=%08lx len=%08lx buf=%08lx\n",
+        ior->io_Offset, ior->io_Length, ior->io_Data));
+      base->readFunc(ior, base);
+      break;
+    default:
+      D(("?? cmd=%08lx\n", (ULONG)cmd));
+      break;
+  }
+}
+
+void mydev_worker_exit(struct DevBase *base)
+{
 }

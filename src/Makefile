@@ -9,9 +9,9 @@ LDFLAGS=-g -nostdlib -lvcs
 AS=vasmm68k_mot
 ASFLAGS=-Fhunk -I$(TC_DIR)/os-include
 
-SRCS=device.c boot.c disk.c mydev.c
+SRCS=device.c boot.c disk.c mydev.c worker.c
 ASRCS=rnc.s diag.s
-HDRS=boot.h disk.h debug.h mydev.h
+HDRS=boot.h disk.h debug.h mydev.h worker.h
 
 VPATH=rnc
 
