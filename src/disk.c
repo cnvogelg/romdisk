@@ -41,11 +41,11 @@ static ULONG unpack_rnc(UBYTE *packed_data, UBYTE *out_data)
   return unpack_rnc1(packed_data, out_data);
 }
 
-static UBYTE *disk_get_pack_data(struct DevBase *base, ULONG pack_id)
+static UBYTE *disk_get_unpacked_data(struct DevBase *base, ULONG pack_id)
 {
   /* already unpacked? */
   if(pack_id == base->curPackId) {
-    D(("reuse pack: #%ld\n", pack_id));
+    D(("  pack: #%ld re-used\n", pack_id));
     return base->unpackBuffer;
   }
 
@@ -54,7 +54,7 @@ static UBYTE *disk_get_pack_data(struct DevBase *base, ULONG pack_id)
   UBYTE *pack_data = base->diskData + offset;
 
   ULONG unpack_size = base->unpackFunc(pack_data, base->unpackBuffer);
-  D(("unpack: #%ld -> @%08lx -> got %08lx\n", pack_id, pack_data, unpack_size));
+  D(("  pack: #%ld -> @%08lx -> got %08lx\n", pack_id, pack_data, unpack_size));
 
   if(unpack_size == ph->pack_size) {
     base->curPackId = pack_id;
@@ -87,7 +87,7 @@ static void disk_pack_read(struct IOStdReq *ior, struct DevBase *base)
 {
   ULONG offset = ior->io_Offset;
   ULONG length = ior->io_Length;
-  APTR  buffer = ior->io_Data;
+  UBYTE *buffer = (UBYTE *)ior->io_Data;
 
   if((offset + length) > base->diskHeader->disk_size) {
     ior->io_Actual = 0;
@@ -98,24 +98,45 @@ static void disk_pack_read(struct IOStdReq *ior, struct DevBase *base)
     ULONG pack_size = packHeader->pack_size;
     ULONG pack_id = offset / pack_size;
     ULONG pack_off = offset % pack_size;
-    /* currently read op has to fit inside pack */
-    if((pack_off + length) > pack_size) {
-      ior->io_Actual = 0;
-      ior->io_Error = TDERR_NotSpecified;
-      D(("pack read out of range: pack_off=%08lx len=%08lx\n", pack_off, length));
-    }
-    else {
-      UBYTE *pack_buffer = disk_get_pack_data(base, pack_id);
-      if(pack_buffer == NULL) {
-        ior->io_Actual = 0;
-        ior->io_Error = TDERR_NotSpecified;
-      } else {
-        ior->io_Actual = length;
-        UBYTE *data = pack_buffer + pack_off;
-        D(("read data @%08lx + %08lx with %08lx bytes\n", pack_buffer, pack_off, length));
-        CopyMemQuick(data, buffer, length);
+    /* read until length reached */
+    ULONG done = 0;
+    BOOL last = FALSE;
+    while(1) {
+      ULONG l;
+      /* read command crosses pack boundaries -> multiple unpacks required */
+      if((pack_off + length) > pack_size) {
+        l = pack_size - pack_off;
       }
+      /* read fits in this pack */
+      else {
+        l = length;
+        last = TRUE;
+      }
+      /* get unpacked buffer for pack_id */
+      UBYTE *pack_buffer = disk_get_unpacked_data(base, pack_id);
+      if(pack_buffer == NULL) {
+        ior->io_Error = TDERR_NotSpecified;
+        D(("READ ERROR: no buffer!\n"));
+        break;
+      }
+      /* copy fragment of this pack */
+      UBYTE *data = pack_buffer + pack_off;
+      D(("  read @%08lx: data @%08lx + %08lx with %08lx bytes\n",
+         buffer, pack_buffer, pack_off, l));
+      CopyMemQuick(data, buffer, l);
+      /* last pack? */
+      if(last) {
+        break;
+      }
+      /* next pack iteration */
+      pack_id++;
+      pack_off=0;
+      length -= l;
+      done += l;
+      buffer += l;
     }
+    /* done */
+    ior->io_Actual = done;
   }
 }
 

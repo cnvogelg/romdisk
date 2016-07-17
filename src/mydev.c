@@ -76,8 +76,6 @@ void mydev_begin_io(struct IOStdReq *ior, struct DevBase *base)
   UWORD cmd = ior->io_Command;
   switch(cmd) {
     case CMD_READ:
-      D(("READ: off=%08lx len=%08lx buf=%08lx\n",
-         ior->io_Offset, ior->io_Length, ior->io_Data));
       /* clear quick */
       ior->io_Flags &= ~IOF_QUICK;
       /* forward to worker */
@@ -135,7 +133,7 @@ void mydev_worker_cmd(struct DevBase *base, struct IOStdReq *ior)
   UWORD cmd = ior->io_Command;
   switch(cmd) {
     case CMD_READ:
-      D(("READ2: off=%08lx len=%08lx buf=%08lx\n",
+      D(("READ: off=%08lx len=%08lx buf=%08lx\n",
         ior->io_Offset, ior->io_Length, ior->io_Data));
       base->readFunc(ior, base);
       break;
