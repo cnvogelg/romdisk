@@ -125,6 +125,7 @@ static void disk_pack_read(struct IOStdReq *ior, struct DevBase *base)
          buffer, pack_buffer, pack_off, l));
       CopyMemQuick(data, buffer, l);
       /* last pack? */
+      done += l;
       if(last) {
         break;
       }
@@ -132,11 +133,11 @@ static void disk_pack_read(struct IOStdReq *ior, struct DevBase *base)
       pack_id++;
       pack_off=0;
       length -= l;
-      done += l;
       buffer += l;
     }
     /* done */
     ior->io_Actual = done;
+    D(("  done %08lx\n", done));
   }
 }
 
@@ -195,9 +196,9 @@ BOOL disk_open(struct DevBase *base)
 {
   struct PackHeader *ph = base->packHeader;
   if(ph != NULL) {
-    base->unpackBuffer = (BYTE *)AllocMem(ph->pack_size, 0);
+    base->unpackBuffer = (BYTE *)AllocMem(ph->pack_size, MEMF_PUBLIC);
     base->curPackId = -1;
-    D(("unpackBuffer=%08lx\n", base->unpackBuffer));
+    D(("unpackBuffer=%08lx size=%08lx\n", base->unpackBuffer, ph->pack_size));
     if(base->unpackBuffer == NULL) {
       return FALSE;
     }
