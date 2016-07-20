@@ -44,7 +44,7 @@ static ULONG *create_param_pkt(struct DevBase *base, ULONG *size)
   paramPkt[14] = hdr->cylinders-1;  /* 9 upper cylinder */
   paramPkt[15] = hdr->num_buffers;  /* a number of buffers */
   paramPkt[16] = MEMF_PUBLIC;       /* b type of memory for buffers */
-  paramPkt[17] = (~0 >> 1);         /* c largest transfer size (largest signed #) */
+  paramPkt[17] = 0x7fffffff;        /* c largest transfer size (largest signed #) */
   paramPkt[18] = ~1;                /* d addmask */
   paramPkt[19] = hdr->boot_prio;    /* e boot priority */
   paramPkt[20] = hdr->dos_type;     /* f dostype: 'DOS\0' */
