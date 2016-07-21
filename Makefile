@@ -1,32 +1,42 @@
 FORMAT?=raw
-ROM_NAME=ext_$(FORMAT).rom
-DISK_NAME=disk_$(FORMAT).rodi
+FLAVOR?=_rel
+BUILD_DIR=BUILD
+ROM_NAME=$(BUILD_DIR)/ext_$(FORMAT)$(FLAVOR).rom
+DISK_NAME=$(BUILD_DIR)/disk_$(FORMAT).rodi
 
-all: raw rnc
+DEV_NAME=src/BUILD/romdisk.device$(FLAVOR)
 
-rom: $(ROM_NAME)
+FLAVORS=_rel _dbg
+FORMATS=raw rnc
 
-raw:
-	$(MAKE) FORMAT=raw rom
+all: $(BUILD_DIR) $(ROM_NAME)
 
-rnc:
-	$(MAKE) FORMAT=rnc rom
+formats:
+	@for f in $(FORMATS) ; do \
+		$(MAKE) FORMAT=$$f ; \
+	done
+	@echo "--- formats $(FORMATS) ---"
 
-debug:
-	$(MAKE) all DEBUG=1
+flavors:
+	@for f in $(FLAVORS) ; do \
+		$(MAKE) FLAVOR=$$f formats ; \
+	done
+	@echo "--- flavors $(FLAVORS) ---"
 
-$(ROM_NAME): BUILD/romdisk.device $(DISK_NAME)
-	romtool -v build -o $@ -t ext $^
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
-BUILD/romdisk.device:
-	$(MAKE) -C src
+$(DEV_NAME):
+	$(MAKE) -C src FLAVOR=$(FLAVOR)
 
 $(DISK_NAME): ROMDISK
-	./mkromdisk $@ -d ROMDISK -D ofs -p 15 -f $(FORMAT)
+	./mkromdisk $@ -d ROMDISK -p 15 -f $(FORMAT)
+
+$(ROM_NAME): $(DEV_NAME) $(DISK_NAME)
+	romtool -v build -o $@ -t ext $^
 
 clean_all: clean
-	rm -rf BUILD
+	$(MAKE) -C src clean
 
 clean:
-	rm -f disk_raw.rodi disk_rnc.rodi
-	rm -f ext_raw.rom ext_rnc.rom
+	rm -rf BUILD

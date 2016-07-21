@@ -18,6 +18,9 @@ struct MyStartMsg {
   struct MsgPort *port;
 };
 
+/* from device.c */
+extern const char UserLibName[];
+
 static struct MyStartMsg * worker_startup(void)
 {
   struct Process *proc;
@@ -121,7 +124,7 @@ BOOL worker_start(struct DevBase *base)
   /* worker process */
   myProc = CreateNewProcTags(NP_Entry, (LONG)worker_main,
                              NP_StackSize, 4096,
-                             NP_Name, (LONG)NAME,
+                             NP_Name, (LONG)UserLibName,
                              TAG_DONE);
   if (myProc == NULL) {
     return FALSE;

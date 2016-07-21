@@ -20,7 +20,9 @@ struct DevBase *mydev_init(struct DevBase *base)
     return NULL;
   }
 
+#ifdef AUTOBOOT
   boot_init(base);
+#endif
 
   return base;
 }

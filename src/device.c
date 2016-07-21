@@ -11,16 +11,16 @@
 #include "debug.h"
 #include "mydev.h"
 
-#define VERS        NAME " " VER_STR
-#define VSTRING     NAME " " VER_STR " (" DATE ")\r\n"
-#define VERSTAG     "\0$VER: " NAME " " VER_STR " (" DATE ")"
+#define VERS        MYDEV_NAME " " MYDEV_VERSION_STR
+#define VSTRING     MYDEV_NAME " " MYDEV_VERSION_STR " (" MYDEV_DATE ")\r\n"
+#define VERSTAG     "\0$VER: " MYDEV_NAME " " MYDEV_VERSION_STR " (" MYDEV_DATE ")"
 
 int Main(void)
 {
   return RETURN_FAIL;
 }
 
-static const char UserLibName[] = NAME;
+const char UserLibName[] = MYDEV_NAME;
 static const char UserLibVer[]  = VSTRING;
 static const char UserLibID[]   = VERSTAG;
 
@@ -68,7 +68,7 @@ static const USED_VAR struct Resident ROMTag =
   (struct Resident *)&ROMTag,
   (struct Resident *)&ROMTag + 1,
   RTF_AUTOINIT | RTF_COLDSTART,
-  VERSION,
+  MYDEV_VERSION,
   NT_DEVICE,
   0, /* prio */
   (APTR)UserLibName,
@@ -89,8 +89,8 @@ LIBFUNC static struct DevBase * DevInit(REG(a0, BPTR Segment),
   base->libBase.lib_Node.ln_Pri  = 0;
   base->libBase.lib_Node.ln_Name = (char *)UserLibName;
   base->libBase.lib_Flags        = LIBF_CHANGED | LIBF_SUMUSED;
-  base->libBase.lib_Version      = VERSION;
-  base->libBase.lib_Revision     = REVISION;
+  base->libBase.lib_Version      = MYDEV_VERSION;
+  base->libBase.lib_Revision     = MYDEV_REVISION;
   base->libBase.lib_IdString     = (char *)UserLibVer;
 
   base->segList = Segment;
