@@ -73,7 +73,7 @@ all: $(BUILD_DIR) $(OBJ_DIR) $(DEVICE)
 
 flavors:
 	@for f in $(FLAVORS) ; do \
-		$(MAKE) FLAVOR=$$f ; \
+		$(MAKE) FLAVOR=$$f || exit 1 ; \
 	done
 	@echo "---- done flavors: $(FLAVORS) -----"
 
@@ -96,3 +96,11 @@ $(OBJ_DIR)/%.o: %.s
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+dist:
+	@for f in $(FLAVORS) ; do \
+		$(MAKE) dist_flavor FLAVOR=$$f || exit 1 ; \
+	done
+
+dist_flavor: all
+	cp $(DEVICE) $(DIST_DIR)/devs
