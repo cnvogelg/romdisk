@@ -29,9 +29,6 @@ struct DevBase
 #ifndef NO_SYSBASE
 #define SysBase base->sysBase
 #endif
-#ifndef NO_DOSBASE
-#define DOSBase base->dosBase
-#endif
 
 extern struct DevBase *mydev_init(struct DevBase *base);
 extern void mydev_expunge(struct DevBase *base);

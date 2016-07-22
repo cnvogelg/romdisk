@@ -80,6 +80,7 @@ static SAVEDS ASM void worker_main(void)
         /* terminate? */
         if(ior->io_Command == CMD_TERM) {
           stay = FALSE;
+          ReplyMsg(&ior->io_Message);
           break;
         }
         /* regular command */
@@ -95,6 +96,10 @@ static SAVEDS ASM void worker_main(void)
     /* shutdown worker */
     mydev_worker_exit(base);
   }
+
+  D(("Task: delete port\n"));
+  DeleteMsgPort(port);
+  base->workerPort = NULL;
 
   /* kill myself */
   D(("Task: die\n"));
