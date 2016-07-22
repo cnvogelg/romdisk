@@ -1,5 +1,5 @@
 FORMAT?=raw
-FLAVOR?=_rel
+FLAVOR?=_dbg
 BUILD_DIR=BUILD
 ROM_NAME=$(BUILD_DIR)/ext_$(FORMAT)$(FLAVOR).rom
 DISK_NAME=$(BUILD_DIR)/disk_$(FORMAT).rodi
@@ -14,6 +14,10 @@ include version.mk
 DIST_NAME=romdisk_$(PROJECT_MAJOR).$(PROJECT_MINOR)
 
 all: $(ROM_NAME)
+
+force:
+	rm -f $(DEV_NAME)
+	$(MAKE)
 
 formats:
 	@for f in $(FORMATS) ; do \

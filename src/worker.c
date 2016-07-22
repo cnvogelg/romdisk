@@ -1,8 +1,13 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
+#include <proto/alib.h>
+
+#include <exec/types.h>
 #include <dos/dostags.h>
 #include <dos/dosextens.h>
 #include <dos/dos.h>
+
+#include <SDI/SDI_compiler.h>
 
 #define NO_SYSBASE
 #include "mydev.h"
@@ -10,49 +15,37 @@
 #include "worker.h"
 
 #define CMD_TERM     0x7ff0
-#define CMD_STARTUP  0x7ff1
 
-struct MyStartMsg {
-  struct Message msg;
+struct InitData
+{
+  ULONG           initSigMask;
+  struct Task    *initTask;
   struct DevBase *base;
-  struct MsgPort *port;
 };
 
-/* from device.c */
-extern const char UserLibName[];
+static const char WorkerTaskName[] = MYDEV_WORKER ".task";
 
-static struct MyStartMsg * worker_startup(void)
+static struct InitData * worker_startup(void)
 {
-  struct Process *proc;
-  struct MyStartMsg *msg;
-
-  /* local sys base */
+  /* retrieve global sys base */
   struct Library *SysBase = *((struct Library **)4);
 
-  proc = (struct Process *)FindTask((char *)NULL);
+  struct Task *task = FindTask(NULL);
 
-  /* get the startup message */
-  while((msg = (struct MyStartMsg *)GetMsg(&proc->pr_MsgPort)) == NULL) {
-    WaitPort(&proc->pr_MsgPort);
-  }
-
-  /* extract DevBase db for lib base access */
-  return msg;
+  return (struct InitData *)task->tc_UserData;
 }
 
 #define SysBase base->sysBase
 
-static void worker_main(void)
+static SAVEDS ASM void worker_main(void)
 {
   struct IOStdReq *ior;
-  struct DevBase *base;
   struct MsgPort *port;
-  struct MyStartMsg *msg;
 
-  msg = worker_startup();
-
-  /* get device base - now we can reference SysBase via base->sysBase */
-  base = msg->base;
+  /* retrieve dev base stored in user data of task */
+  struct InitData *id = worker_startup();
+  struct DevBase *base = id->base;
+  D(("Task: id=%08lx base=%08lx\n", id, base));
 
   /* create worker port */
   port = CreateMsgPort();
@@ -66,84 +59,94 @@ static void worker_main(void)
     }
   }
 
-  /* reply startup message */
-  msg->port = port;
-  ReplyMsg((struct Message *)msg);
+  /* setup port or NULL and trigger signal to caller task */
+  base->workerPort = port;
+  D(("Task: signal task=%08lx mask=%08lx\n", id->initTask, id->initSigMask));
+  Signal(id->initTask, id->initSigMask);
 
-  /* if port failed quit process */
-  if(port == NULL)
+  /* only if port is available then enter work loop. otherwise quit task */
+  if(port != NULL)
   {
-    return;
-  }
-
-  /* worker loop */
-  D(("Worker: enter\n"));
-  BOOL stay = TRUE;
-  while (stay) {
-    WaitPort(port);
-    while (1) {
-      ior = (struct IOStdReq *)GetMsg(port);
-      if(ior == NULL) {
-        break;
-      }
-      /* terminate? */
-      if(ior->io_Command == CMD_TERM) {
-        stay = FALSE;
-        break;
-      }
-      /* regular command */
-      else {
-        mydev_worker_cmd(base, ior);
-        ReplyMsg(&ior->io_Message);
+    /* worker loop */
+    D(("Task: enter\n"));
+    BOOL stay = TRUE;
+    while (stay) {
+      WaitPort(port);
+      while (1) {
+        ior = (struct IOStdReq *)GetMsg(port);
+        if(ior == NULL) {
+          break;
+        }
+        /* terminate? */
+        if(ior->io_Command == CMD_TERM) {
+          stay = FALSE;
+          break;
+        }
+        /* regular command */
+        else {
+          mydev_worker_cmd(base, ior);
+          ReplyMsg(&ior->io_Message);
+        }
       }
     }
+
+    /* call shutdown only if worker was entered */
+    D(("Task: exit\n"));
+    /* shutdown worker */
+    mydev_worker_exit(base);
   }
 
-  D(("Worker: leave\n"));
-  /* shutdown worker */
-  mydev_worker_exit(base);
-
-  Forbid();
-  ReplyMsg(&ior->io_Message);
+  /* kill myself */
+  D(("Task: die\n"));
+  struct Task *me = FindTask(NULL);
+  DeleteTask(me);
+  Wait(0);
+  D(("Task: NEVER!\n"));
 }
 
 BOOL worker_start(struct DevBase *base)
 {
-  struct Process *myProc;
-  struct MyStartMsg msg;
-
   D(("Worker: start\n"));
   base->workerPort = NULL;
 
-  /* open dos */
-  DOSBase = (struct Library *)OpenLibrary("dos.library", 36);
-  if(DOSBase == NULL) {
+  /* alloc a signal */
+  BYTE signal = AllocSignal(-1);
+  if(signal == -1) {
+    D(("Worker: NO SIGNAL!\n"));
     return FALSE;
   }
 
-  /* worker process */
-  myProc = CreateNewProcTags(NP_Entry, (LONG)worker_main,
-                             NP_StackSize, 4096,
-                             NP_Name, (LONG)UserLibName,
-                             TAG_DONE);
-  if (myProc == NULL) {
+  /* setup init data */
+  struct InitData id;
+  id.initSigMask = 1 << signal;
+  id.initTask = FindTask(NULL);
+  id.base = base;
+  D(("Worker: init data %08lx\n", &id));
+
+  /* now launch worker task and inject dev base
+     make sure worker_main() does not run before base is set.
+  */
+  Forbid();
+  struct Task *myTask = CreateTask(WorkerTaskName, 0, (CONST APTR)worker_main, 4096);
+  if(myTask != NULL) {
+    myTask->tc_UserData = (APTR)&id;
+  }
+  Permit();
+  if(myTask == NULL) {
+    D(("Worker: NO TASK!\n"));
+    FreeSignal(signal);
     return FALSE;
   }
 
-  /* Send the startup message with the library base pointer */
-  msg.msg.mn_Length = sizeof(struct MyStartMsg) -
-                      sizeof (struct Message);
-  msg.msg.mn_ReplyPort = CreateMsgPort();
-  msg.msg.mn_Node.ln_Type = NT_MESSAGE;
-  msg.base = base;
-  msg.port = NULL;
-  PutMsg(&myProc->pr_MsgPort, (struct Message *)&msg);
-  WaitPort(msg.msg.mn_ReplyPort);
-  DeleteMsgPort(msg.msg.mn_ReplyPort);
+  /* wait for start signal of new task */
+  D(("Worker: wait for task startup. sigmask=%08lx\n", id.initSigMask));
+  Wait(id.initSigMask);
 
-  D(("Worker: started: port=%08lx\n", msg.port));
-  base->workerPort = msg.port;
-  return TRUE;
+  FreeSignal(signal);
+
+  /* ok everything is fine. worker is ready to receive commands */
+  D(("Worker: started: port=%08lx\n", base->workerPort));
+  return (base->workerPort != NULL) ? TRUE : FALSE;
 }
 
 void worker_stop(struct DevBase *base)
@@ -161,14 +164,6 @@ void worker_stop(struct DevBase *base)
     PutMsg(base->workerPort, &newior.io_Message);
     WaitPort(newior.io_Message.mn_ReplyPort);
     DeleteMsgPort(newior.io_Message.mn_ReplyPort);
-
-    /* cleanup worker port */
-    DeleteMsgPort(base->workerPort);
-  }
-
-  if(DOSBase != NULL) {
-    /* close dos */
-    CloseLibrary(DOSBase);
   }
 
   D(("Worker: stopped\n"));

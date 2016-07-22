@@ -1,6 +1,6 @@
 # Makefile to cross-compile romdisk.device
 
-FLAVOR?=_rel
+FLAVOR?=_dbg
 BUILD_DIR=BUILD
 OBJ_DIR=$(BUILD_DIR)/obj$(FLAVOR)
 
@@ -31,6 +31,7 @@ CDEFINES+=-DMYDEV_REVISION=$(PROJECT_MINOR)
 CDEFINES+=-DMYDEV_VERSION_STR=$(QUOTE)$(PROJECT_MAJOR).$(PROJECT_MINOR)$(QUOTE)
 CDEFINES+=-DMYDEV_DATE=$(QUOTE)$(PROJECT_DATE)$(QUOTE)
 CDEFINES+=-DMYDEV_NAME=$(QUOTE)$(DEV_NAME)$(QUOTE)
+CDEFINES+=-DMYDEV_WORKER=$(QUOTE)romdisk$(QUOTE)
 
 # toolchain dir
 # uses default dir of https://github.com/cahirwpz/amigaos-cross-toolchain
@@ -39,7 +40,7 @@ TC_DIR=/opt/m68k-amigaos
 # cross compiler/assembler setup
 CC=vc
 CFLAGS=-c99 -g -sc $(CDEFINES)
-LDFLAGS=-g -nostdlib -lvcs
+LDFLAGS=-g -nostdlib -lvcs -lamiga
 AS=vasmm68k_mot
 ASFLAGS=-quiet -Fhunk -I$(TC_DIR)/os-include
 
@@ -86,7 +87,7 @@ $(BUILD_DIR):
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
 
-$(OBJS): $(SRCS) $(HDRS)
+$(OBJS): $(SRCS) $(HDRS) $(ASRCS)
 
 $(OBJ_DIR)/%.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<

@@ -20,7 +20,7 @@ int Main(void)
   return RETURN_FAIL;
 }
 
-const char UserLibName[] = MYDEV_NAME;
+static const char UserLibName[] = MYDEV_NAME;
 static const char UserLibVer[]  = VSTRING;
 static const char UserLibID[]   = VERSTAG;
 
@@ -96,7 +96,10 @@ LIBFUNC static struct DevBase * DevInit(REG(a0, BPTR Segment),
   base->segList = Segment;
   base->sysBase = (APTR)sb;
 
-  return mydev_init(base);
+  D(("+DevInit(%08lx, %08lx, %08lx)\n", Segment, base, sb));
+  struct DevBase *result = mydev_init(base);
+  D(("-DevInit: result=%08lx\n", result));
+  return result;
 }
 
 LIBFUNC static BPTR DevExpunge(REG(a6, struct DevBase *base))
@@ -124,7 +127,7 @@ LIBFUNC static struct DevBase * DevOpen(REG(a1, struct IOStdReq *ior),
                                         REG(d1, ULONG flags),
                                         REG(a6, struct DevBase *base))
 {
-  D(("DevOpen(%lx,%ld,%ld)\n", ior, unit, flags));
+  D(("+DevOpen(%lx,%ld,%ld)\n", ior, unit, flags));
   if(base == NULL) {
     return NULL;
   }
@@ -138,13 +141,16 @@ LIBFUNC static struct DevBase * DevOpen(REG(a1, struct IOStdReq *ior),
   } else {
     base->libBase.lib_Flags &= ~LIBF_DELEXP;
   }
+
+  D(("-DevOpen: result=%08lx\n", result));
   return result;
 }
 
 LIBFUNC static BPTR DevClose(REG(a1, struct IOStdReq *ior),
                              REG(a6, struct DevBase *base))
 {
-  D(("DevClose(%lx)\n", ior));
+  BPTR result = 0;
+  D(("+DevClose(%lx)\n", ior));
 
   mydev_close(ior, base);
 
@@ -153,10 +159,11 @@ LIBFUNC static BPTR DevClose(REG(a1, struct IOStdReq *ior),
   {
     if(base->libBase.lib_Flags & LIBF_DELEXP)
     {
-      return DevExpunge(base);
+      result = DevExpunge(base);
     }
   }
 
+  D(("-DevClose: result=%08lx\n", result));
   return 0;
 }
 

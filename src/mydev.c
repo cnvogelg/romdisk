@@ -84,10 +84,15 @@ void mydev_begin_io(struct IOStdReq *ior, struct DevBase *base)
       PutMsg(base->workerPort, &ior->io_Message);
       return;
     case TD_CHANGENUM:
+      D(("NUM\n"));
+      ior->io_Actual = 0;
+      break;
     case TD_CHANGESTATE:
+      D(("STATE\n"));
       ior->io_Actual = 0;
       break;
     case TD_PROTSTATUS:
+      D(("WPROT\n"));
       ior->io_Actual = 1; /* is write protected */
       break;
       /* ignore the following commands */

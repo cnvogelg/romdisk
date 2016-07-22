@@ -12,7 +12,7 @@ struct DevBase
   struct Library        libBase;
   struct Library        *sysBase;
   ULONG                 segList;
-  struct Library        *dosBase;
+  /* worker */
   struct MsgPort        *workerPort;
   /* romdisk */
   struct DiskHeader     *diskHeader;
