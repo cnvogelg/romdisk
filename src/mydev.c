@@ -5,8 +5,7 @@
 #include <proto/exec.h>
 #include <proto/expansion.h>
 
-#include <SDI/SDI_compiler.h>
-
+#include "compiler.h"
 #include "debug.h"
 #include "mydev.h"
 #include "boot.h"

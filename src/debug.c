@@ -1,7 +1,7 @@
 #include <proto/exec.h>
 #include <stdarg.h>
 
-#include <SDI/SDI_compiler.h>
+#include "compiler.h"
 
 /* VBCC */
 void __KPutCh(__reg("a6") void *, __reg("d0") UBYTE ch) = "\tjsr\t-516(a6)";

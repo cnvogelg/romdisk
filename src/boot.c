@@ -6,11 +6,10 @@
 #include <exec/libraries.h>
 #include <libraries/expansion.h>
 
+#include "compiler.h"
 #include "debug.h"
 #include "mydev.h"
 #include "disk.h"
-
-#include <SDI/SDI_compiler.h>
 
 static const char execName[] = "romdisk.device";
 

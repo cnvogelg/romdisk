@@ -1,8 +1,7 @@
 #include <proto/exec.h>
 #include <devices/trackdisk.h>
 
-#include <SDI/SDI_compiler.h>
-
+#include "compiler.h"
 #include "debug.h"
 #include "mydev.h"
 #include "disk.h"

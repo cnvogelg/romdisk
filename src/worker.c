@@ -7,9 +7,8 @@
 #include <dos/dosextens.h>
 #include <dos/dos.h>
 
-#include <SDI/SDI_compiler.h>
-
 #define NO_SYSBASE
+#include "compiler.h"
 #include "mydev.h"
 #include "debug.h"
 #include "worker.h"
