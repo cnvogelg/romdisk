@@ -208,20 +208,26 @@ BOOL disk_setup(struct DevBase *base)
 
 BOOL disk_open(struct DevBase *base)
 {
+  base->curPackId = -1;
+
+  /* alloc pack buffer */
   struct PackHeader *ph = base->packHeader;
-  if(ph != NULL) {
+  if((ph != NULL) && (ph->tag != ROMDISK_PACK_NOP)) {
     base->unpackBuffer = (BYTE *)AllocMem(ph->pack_size, MEMF_PUBLIC);
-    base->curPackId = -1;
     D(("unpackBuffer=%08lx size=%08lx\n", base->unpackBuffer, ph->pack_size));
     if(base->unpackBuffer == NULL) {
       return FALSE;
     }
+  } else {
+    base->unpackBuffer = NULL;
   }
+
   return TRUE;
 }
 
 void disk_close(struct DevBase *base)
 {
+  /* free pack buffer */
   struct PackHeader *ph = base->packHeader;
   if(base->unpackBuffer != NULL) {
     FreeMem(base->unpackBuffer, ph->pack_size);
