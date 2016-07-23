@@ -4,7 +4,7 @@ struct BufferMap;
 struct DevBase;
 
 typedef void (*read_func_t)(struct IOStdReq *ior, struct DevBase *base);
-typedef ULONG (*unpack_func_t)(UBYTE *packed_data, UBYTE *out_data);
+typedef UBYTE * (*unpack_func_t)(UBYTE *packed_data, UBYTE *out_buffer, ULONG out_size);
 
 struct DevBase
 {
@@ -23,6 +23,7 @@ struct DevBase
   unpack_func_t         unpackFunc;
   /* open state */
   UBYTE *unpackBuffer;
+  UBYTE *curBuffer; /* unpacked data or NULL if empty buffer */
   ULONG  curPackId;
 };
 

@@ -61,7 +61,7 @@ static const ULONG LibInitTab[] =
 };
 
 /* ---- RomTag ---- */
-static const USED_VAR struct Resident ROMTag =
+static const struct Resident ROMTag =
 {
   RTC_MATCHWORD,
   (struct Resident *)&ROMTag,

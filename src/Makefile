@@ -11,7 +11,10 @@ FLAVORS=_rel _dbg _rel_td _dbg_td
 ifeq "_dbg" "$(findstring _dbg,$(FLAVOR))"
 DEBUG=1
 DEFINES+=DEBUG
+else
+OPTFLAGS=-O2
 endif
+
 ifeq "_td" "$(findstring _td,$(FLAVOR))"
 FAKE_TD=1
 DEFINES+=FAKE_TD
@@ -39,17 +42,17 @@ TC_DIR=/opt/m68k-amigaos
 
 # cross compiler/assembler setup
 CC=vc
-CFLAGS=-c99 -g -sc $(CDEFINES)
+CFLAGS=-c99 -g -sc $(CDEFINES) $(OPTFLAGS)
 LDFLAGS=-g -nostdlib -lvcs -lamiga
 AS=vasmm68k_mot
 ASFLAGS=-quiet -Fhunk -I$(TC_DIR)/os-include
 
-SRCS=device.c disk.c mydev.c worker.c
+SRCS=device.c disk.c mydev.c worker.c unpack.c
 ASRCS=rnc.s
-HDRS=boot.h disk.h debug.h mydev.h worker.h
+HDRS=boot.h disk.h debug.h mydev.h worker.h unpack.h
 
 # fetch sources from subdirs, too
-VPATH=rnc
+VPATH=unpacker
 
 # parse flags
 ifeq "$(DEBUG)" "1"

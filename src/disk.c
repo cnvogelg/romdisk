@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include <proto/exec.h>
 #include <devices/trackdisk.h>
 
@@ -5,6 +7,9 @@
 #include "debug.h"
 #include "mydev.h"
 #include "disk.h"
+#include "unpack.h"
+
+#define EMPTY_PACK 0xffffffff
 
 extern ULONG theEnd;
 
@@ -31,36 +36,36 @@ static struct DiskHeader *disk_find_header(struct DevBase *base)
   return NULL;
 }
 
-/* asm function */
-extern ASM ULONG unpack_rnc1(REG(a0, UBYTE *packed_data),
-                             REG(a1, UBYTE *out_data));
-
-static ULONG unpack_rnc(UBYTE *packed_data, UBYTE *out_data)
-{
-  return unpack_rnc1(packed_data, out_data);
-}
-
-static UBYTE *disk_get_unpacked_data(struct DevBase *base, ULONG pack_id)
+static BOOL disk_get_unpacked_data(struct DevBase *base, ULONG pack_id)
 {
   /* already unpacked? */
   if(pack_id == base->curPackId) {
     D(("  pack: #%ld re-used\n", pack_id));
-    return base->unpackBuffer;
+    return TRUE;
   }
 
+  /* retrieve offset for pack from pack header */
   struct PackHeader *ph = base->packHeader;
   ULONG offset = ph->offsets[pack_id];
-  UBYTE *pack_data = base->diskData + offset;
 
-  ULONG unpack_size = base->unpackFunc(pack_data, base->unpackBuffer);
-  D(("  pack: #%ld -> @%08lx -> got %08lx\n", pack_id, pack_data, unpack_size));
-
-  if(unpack_size == ph->pack_size) {
+  /* empty pack? */
+  if(offset == EMPTY_PACK) {
+    D(("  pack: #%ld empty\n", pack_id));
+    base->curBuffer = NULL; /* NULL marks empty pack */
     base->curPackId = pack_id;
-    return base->unpackBuffer;
-  } else {
-    base->curPackId = -1;
-    return NULL;
+  }
+  /* packed data */
+  else {
+    UBYTE *pack_data = base->diskData + offset;
+    base->curBuffer = base->unpackFunc(pack_data, base->unpackBuffer, ph->pack_size);
+    D(("  pack: #%ld -> @%08lx -> buf=%08lx\n", pack_id, pack_data, base->curBuffer));
+    if(base->curBuffer != NULL) {
+      base->curPackId = pack_id;
+      return TRUE;
+    } else {
+      base->curPackId = -1;
+      return FALSE;
+    }
   }
 }
 
@@ -112,17 +117,23 @@ static void disk_pack_read(struct IOStdReq *ior, struct DevBase *base)
         last = TRUE;
       }
       /* get unpacked buffer for pack_id */
-      UBYTE *pack_buffer = disk_get_unpacked_data(base, pack_id);
-      if(pack_buffer == NULL) {
+      BOOL ok = disk_get_unpacked_data(base, pack_id);
+      if(!ok) {
         ior->io_Error = TDERR_NotSpecified;
         D(("READ ERROR: no buffer!\n"));
         break;
       }
-      /* copy fragment of this pack */
-      UBYTE *data = pack_buffer + pack_off;
-      D(("  read @%08lx: data @%08lx + %08lx with %08lx bytes\n",
-         buffer, pack_buffer, pack_off, l));
-      CopyMemQuick(data, buffer, l);
+      /* copy/clear fragment of this pack */
+      UBYTE *pack_buffer = base->curBuffer;
+      if(pack_buffer != NULL) {
+        UBYTE *data = pack_buffer + pack_off;
+        D(("  read @%08lx: data @%08lx + %08lx with %08lx bytes\n",
+           buffer, pack_buffer, pack_off, l));
+        CopyMemQuick(data, buffer, l);
+      } else {
+        /* clear */
+        memset(buffer, 0, l);
+      }
       /* last pack? */
       done += l;
       if(last) {
@@ -169,7 +180,11 @@ BOOL disk_setup(struct DevBase *base)
     }
     /* check packer */
     ULONG packer = packHeader->packer;
-    if(packer == ROMDISK_PACK_RNC) {
+    if(packer == ROMDISK_PACK_NOP) {
+      base->unpackFunc = unpack_nop;
+      D(("no packer\n"));
+    }
+    else if(packer == ROMDISK_PACK_RNC) {
       base->unpackFunc = unpack_rnc;
       D(("RNC format\n"));
     }

@@ -33,6 +33,7 @@ struct PackHeader {
 
 #define ROMDISK_PACK_TAG 0x5041434b /* PACK */
 #define ROMDISK_PACK_RNC 0x524e4300 /* RNC */
+#define ROMDISK_PACK_NOP 0x4e4f5000 /* NOP */
 
 extern BOOL disk_setup(struct DevBase *base);
 extern BOOL disk_open(struct DevBase *base);
