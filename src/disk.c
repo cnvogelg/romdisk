@@ -188,6 +188,10 @@ BOOL disk_setup(struct DevBase *base)
       base->unpackFunc = unpack_rnc;
       D(("RNC format\n"));
     }
+    else if(packer == ROMDISK_PACK_DFLT) {
+      base->unpackFunc = unpack_dflt;
+      D(("DFLT format\n"));
+    }
     else {
       D(("unknown packer: %08lx\n", packer));
       return FALSE;

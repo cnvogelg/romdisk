@@ -48,7 +48,7 @@ AS=vasmm68k_mot
 ASFLAGS=-quiet -Fhunk -I$(TC_DIR)/os-include
 
 SRCS=device.c disk.c mydev.c worker.c unpack.c
-ASRCS=rnc.s
+ASRCS=rnc.s inflate.s
 HDRS=boot.h disk.h debug.h mydev.h worker.h unpack.h
 
 # fetch sources from subdirs, too

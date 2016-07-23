@@ -7,7 +7,7 @@ DISK_NAME=$(BUILD_DIR)/disk_$(FORMAT).rodi
 DEV_NAME=src/BUILD/romdisk.device$(FLAVOR)
 
 FLAVORS=_rel _dbg
-FORMATS=raw nop rnc
+FORMATS=raw nop rnc dflt
 
 include version.mk
 

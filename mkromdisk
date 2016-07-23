@@ -10,6 +10,7 @@ import subprocess
 import logging
 import struct
 import StringIO
+import zlib
 
 
 LOG_FORMAT='%(asctime)-15s  %(levelname)-10s  %(message)s'
@@ -89,6 +90,28 @@ def pack_rnc(raw_packs, temp_prefix):
   return out_packs
 
 
+def pack_dflt(raw_packs):
+  out_packs = []
+  for p in raw_packs:
+    if p is None:
+      out_packs.append(None)
+    else:
+      zdata = zlib.compress(p, 9)
+      # strip zlib header to get deflate stream (see RFC 1950)
+      skip = 2
+      cmf = ord(zdata[0])
+      flg = ord(zdata[1])
+      cm = cmf & 0xf
+      cinfo = cmf >> 4
+      fdict = flg & 0x20 == 0x20
+      flevel = flg >> 6
+      if fdict:
+        skip += 4
+      data = zdata[skip:-4]
+      out_packs.append(data)
+  return out_packs
+
+
 def is_pack_empty(pack):
   for b in pack:
     if ord(b) != 0:
@@ -127,6 +150,8 @@ def pack_image(geo, pack_entity, img_data, packer, temp_prefix="temp"):
   if num_filled > 0:
     if packer == 'rnc':
       out_packs = pack_rnc(raw_packs, temp_prefix)
+    elif packer == 'dflt':
+      out_packs = pack_dflt(raw_packs)
     elif packer == 'nop':
       # no packer
       out_packs = raw_packs
@@ -164,13 +189,20 @@ def pack_image(geo, pack_entity, img_data, packer, temp_prefix="temp"):
   return gen_pack_data(packer, pack_size, out_packs)
 
 
+def get_packer_tag(packer):
+  p = packer.upper()
+  while len(p) < 4:
+    p = p + chr(0)
+  return p
+
+
 def gen_pack_data(packer, pack_size, pack_datas):
   # gen header
   io = StringIO.StringIO()
   # tag
   io.write("PACK")
   # packer
-  io.write(packer.upper() + chr(0))
+  io.write(get_packer_tag(packer))
   # num packs, pack_Size
   io.write(struct.pack(">II", len(pack_datas), pack_size))
   # offsets for num_packs
@@ -237,7 +269,7 @@ def mkromdisk(out_disk, geometry, from_dir=None, from_image=None,
   if image_format == 'raw':
     out_data = img_data
     disk_format = 0
-  elif image_format in ('rnc', 'nop'):
+  elif image_format in ('rnc', 'nop', 'dflt'):
     out_data = pack_image(geometry, pack_entity, img_data, image_format, temp_prefix)
     disk_format = 1
   else:
@@ -304,10 +336,10 @@ def parse_args():
   parser.add_argument('-p', '--boot-prio', default=5, type=int,
                       help="boot priority for romdisk")
   parser.add_argument('-f', '--format', default='raw',
-                      help="disk image storage format: raw, nop, rnc")
+                      help="disk image storage format: raw, nop, dflt, rnc")
   parser.add_argument('-v', '--verbose', default=False, action='store_true',
                       help="be more verbose")
-  parser.add_argument('-e', '--pack-entity', default='cyls',
+  parser.add_argument('-e', '--pack-entity', default='tracks',
                       help="what to pack: 'cyls' or 'tracks'")
 
   return parser.parse_args()
