@@ -21,6 +21,8 @@ def create_disk_image(temp_prefix, disk_dir, geo, dostype):
   temp_hdf = temp_prefix + ".hdf"
   geo_str = "chs=%d,%d,%d" % tuple(geo)
   cmd = ['xdftool', '-f', temp_hdf, 'pack', disk_dir, dostype, geo_str]
+  # add boot block
+  cmd += ['+', 'boot', 'install']
   logging.info("mastering image with: %s", " ".join(cmd))
   res = subprocess.call(cmd)
   if res != 0:
