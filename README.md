@@ -40,6 +40,8 @@ and
 * Configurable image geometry, boot priority
 * Python tool `mkromdisk` to create image file from disk images or directories
 * Amiga device with source that can be cross-compiled on modern systems
+* A drop-in replacement variant for `trackdisk.device` to have a very
+  compatible DF0 device
 
 ## Prerequisites
 
@@ -101,6 +103,10 @@ kickstart_ext_file = ext.rom
 If you run the emulator it will boot the Workbench directly from ROM...
 
 [1]: https://fs-uae.net
+
+## More Documents
+
+* [romdisk Examples](doc/example.md)
 
 ## Thanks
 

@@ -51,7 +51,7 @@ clean:
 	rm -rf BUILD
 
 dist_dirs:
-	@mkdir -p $(DIST_NAME)/devs $(DIST_NAME)/roms
+	@mkdir -p $(DIST_NAME)/devs $(DIST_NAME)/roms $(DIST_NAME)/doc
 
 dist_flavors:
 	@for f in $(FLAVORS) ; do \
@@ -69,6 +69,7 @@ dist_local: $(ROM_NAME)
 dist: dist_dirs dist_flavors
 	@$(MAKE) -C src dist DIST_DIR=../$(DIST_NAME)
 	@cp README.md $(DIST_NAME)/
+	@cp doc/*.md $(DIST_NAME)/doc/
 	@echo "--- dist: $(DIST_NAME) ---"
 	@ls -laR $(DIST_NAME)
 
