@@ -14,8 +14,16 @@ extern ASM ULONG unpack_rnc1(REG(a0, UBYTE *packed_data),
 
 UBYTE * unpack_rnc(UBYTE *packed_data, UBYTE *out_buffer, ULONG out_size)
 {
-  unpack_rnc1(packed_data, out_buffer);
-  return out_buffer;
+  ULONG *tag = (ULONG *)packed_data;
+  /* is really packed with RNC1 */
+  if(*tag == 0x524e4301) {
+    unpack_rnc1(packed_data, out_buffer);
+    return out_buffer;
+  }
+  /* raw track */
+  else {
+    return packed_data;
+  }
 }
 
 extern ASM ULONG inflate(REG(a5, UBYTE *packed_data),

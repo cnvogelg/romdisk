@@ -81,13 +81,18 @@ def pack_rnc(raw_packs, temp_prefix):
     else:
       out_file = "%s_%03d.pak" % (temp_prefix, i)
       pack_file = "%s_%03d.RNC" % (temp_prefix, i)
-      # read result
-      with open(pack_file, "rb") as fi:
-        data = fi.read()
-        out_packs.append(data)
-      logging.debug("read packed data from '%s'", pack_file)
-      # clean files
-      os.remove(pack_file)
+      if os.path.exists(pack_file):
+        # read result
+        with open(pack_file, "rb") as fi:
+          data = fi.read()
+          out_packs.append(data)
+        logging.debug("read packed data from '%s'", pack_file)
+        # clean files
+        os.remove(pack_file)
+      else:
+        # keep raw pack
+        out_packs.append(raw_packs[i])
+        logging.debug("keep raw packet for '%s'", out_file)
       os.remove(out_file)
   return out_packs
 
