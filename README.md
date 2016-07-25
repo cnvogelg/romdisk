@@ -106,7 +106,7 @@ If you run the emulator it will boot the Workbench directly from ROM...
 
 ## More Documents
 
-* [romdisk Examples](doc/example.md)
+* [romdisk Examples](doc/examples.md)
 
 ## Thanks
 
