@@ -396,7 +396,7 @@ def parse_args():
   parser.add_argument('-p', '--boot-prio', default=5, type=int,
                       help="boot priority for romdisk")
   parser.add_argument('-f', '--format', default='raw',
-                      help="disk image storage format: raw, nop, dflt, rnc")
+                      help="disk image storage format: raw, nop, dflt, rnc, lz4")
   parser.add_argument('-v', '--verbose', default=False, action='store_true',
                       help="be more verbose")
   parser.add_argument('-e', '--pack-entity', default='tracks',

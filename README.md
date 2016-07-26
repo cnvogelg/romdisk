@@ -36,6 +36,7 @@ and
 * Compressions supported:
   * Deflate Compression from ZLib
   * RNC Compressor (Rob Nothern Computing)
+  * LZ4 Fast Compression
 * Autoboot on OS 2.x and 3.x
 * Configurable image geometry, boot priority
 * Python tool `mkromdisk` to create image file from disk images or directories
@@ -48,12 +49,14 @@ and
 * Amiga OS 2.x or 3.x and real/emulated classic Amiga m68k system
 * Python 2.7 for host tool
 * [amitools][1] installed for `xdftool`, `romtool`, and `vamos`
-* `ppami.exe` [RNC ProPack][2] to use RNC Compressor
+* `ppami.exe` Amiga tool from [RNC ProPack][2] to use RNC Compression
+* `lz4` tool from [lz4.org][4] to use LZ4 Compression
 * Cross compilers from [amigaos-cross-toolchain][3] to build device from sources
 
 [1]: https://github.com/cnvogelg/amitools
 [2]: http://aminet.net/package/util/pack/RNC_ProPack
 [3]: https://github.com/cahirwpz/amigaos-cross-toolchain
+[4]: https://lz4.org/
 
 ## Tutorial
 
