@@ -119,6 +119,57 @@ def pack_dflt(raw_packs):
   return out_packs
 
 
+def pack_with_files(raw_packs, temp_prefix, cmd_cb):
+  # loop over packs write them to disk and read back packed data
+  out_packs = []
+  n = len(raw_packs)
+  for i in xrange(n):
+    data = raw_packs[i]
+    if data is None:
+      out_packs.append(None)
+    else:
+      in_file = "%s_%03d.raw" % (temp_prefix, i)
+      out_file = "%s_%03d.pak" % (temp_prefix, i)
+      # write track to temp file
+      with open(in_file, "wb") as fi:
+        fi.write(data)
+      logging.debug("wrote raw data to '%s'", in_file)
+
+      # now call external tool
+      ok = cmd_cb(in_file, out_file)
+      if ok:
+        # read result
+        with open(out_file, "rb") as fo:
+          data = fo.read()
+          out_packs.append(data)
+      # clean files
+      os.remove(in_file)
+      os.remove(out_file)
+      if not ok:
+        break
+  return out_packs
+
+
+def pack_lz4(raw_packs, temp_prefix):
+  cmd = ['lz4', '-9', '-q', '-f']
+  def lz4_cmd(in_file, out_file):
+    my_cmd = cmd + [in_file, out_file]
+    ret = subprocess.call(my_cmd)
+    return ret == 0
+  tmp_packs = pack_with_files(raw_packs, temp_prefix, lz4_cmd)
+  if tmp_packs is None:
+    return None
+  # post-process lz4 and remove header
+  out_packs = []
+  for data in tmp_packs:
+    if data is None:
+      out_packs.append(None)
+    else:
+      repack_lz4(data)
+      out_packs.append(data)
+  return out_packs
+
+
 def is_pack_empty(pack):
   for b in pack:
     if ord(b) != 0:
@@ -159,6 +210,8 @@ def pack_image(geo, pack_entity, img_data, packer, temp_prefix="temp"):
       out_packs = pack_rnc(raw_packs, temp_prefix)
     elif packer == 'dflt':
       out_packs = pack_dflt(raw_packs)
+    elif packer == 'lz4':
+      out_packs = pack_lz4(raw_packs, temp_prefix)
     elif packer == 'nop':
       # no packer
       out_packs = raw_packs
@@ -276,7 +329,7 @@ def mkromdisk(out_disk, geometry, from_dir=None, from_image=None,
   if image_format == 'raw':
     out_data = img_data
     disk_format = 0
-  elif image_format in ('rnc', 'nop', 'dflt'):
+  elif image_format in ('rnc', 'nop', 'dflt', 'lz4'):
     out_data = pack_image(geometry, pack_entity, img_data, image_format, temp_prefix)
     disk_format = 1
   else:

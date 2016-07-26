@@ -45,10 +45,10 @@ CC=vc
 CFLAGS=-c99 -g -sc $(CDEFINES) $(OPTFLAGS)
 LDFLAGS=-g -nostdlib -lvcs -lamiga
 AS=vasmm68k_mot
-ASFLAGS=-quiet -Fhunk -I$(TC_DIR)/os-include
+ASFLAGS=-quiet -Fhunk -I$(TC_DIR)/os-include -m68000
 
 SRCS=device.c disk.c mydev.c worker.c unpack.c
-ASRCS=rnc.s inflate.s
+ASRCS=rnc.s inflate.s lz4.s
 HDRS=boot.h disk.h debug.h mydev.h worker.h unpack.h
 
 # fetch sources from subdirs, too

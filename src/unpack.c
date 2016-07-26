@@ -1,6 +1,7 @@
 #include <proto/exec.h>
 
 #include "compiler.h"
+#include "debug.h"
 
 UBYTE * unpack_nop(UBYTE *packed_data, UBYTE *out_buffer, ULONG out_size)
 {
@@ -32,5 +33,15 @@ extern ASM ULONG inflate(REG(a5, UBYTE *packed_data),
 UBYTE * unpack_dflt(UBYTE *packed_data, UBYTE *out_buffer, ULONG out_size)
 {
   inflate(packed_data, out_buffer);
+  return out_buffer;
+}
+
+
+extern ASM void lz4_unpack(REG(a0, UBYTE *packed_data),
+                           REG(a1, UBYTE *out_data));
+
+UBYTE * unpack_lz4(UBYTE *packed_data, UBYTE *out_buffer, ULONG out_size)
+{
+  lz4_unpack(packed_data, out_buffer);
   return out_buffer;
 }

@@ -192,6 +192,10 @@ BOOL disk_setup(struct DevBase *base)
       base->unpackFunc = unpack_dflt;
       D(("DFLT format\n"));
     }
+    else if(packer == ROMDISK_PACK_LZ4) {
+      base->unpackFunc = unpack_lz4;
+      D(("LZ4 format\n"));
+    }
     else {
       D(("unknown packer: %08lx\n", packer));
       return FALSE;
