@@ -156,18 +156,7 @@ def pack_lz4(raw_packs, temp_prefix):
     my_cmd = cmd + [in_file, out_file]
     ret = subprocess.call(my_cmd)
     return ret == 0
-  tmp_packs = pack_with_files(raw_packs, temp_prefix, lz4_cmd)
-  if tmp_packs is None:
-    return None
-  # post-process lz4 and remove header
-  out_packs = []
-  for data in tmp_packs:
-    if data is None:
-      out_packs.append(None)
-    else:
-      repack_lz4(data)
-      out_packs.append(data)
-  return out_packs
+  return pack_with_files(raw_packs, temp_prefix, lz4_cmd)
 
 
 def is_pack_empty(pack):
@@ -284,7 +273,7 @@ def gen_pack_data(packer, pack_size, pack_datas):
 
 def mkromdisk(out_disk, geometry, from_dir=None, from_image=None,
               temp_prefix="temp", dostype="DOS0", boot_prio=5,
-              image_format='raw', pack_entity='cyls'):
+              image_format='raw', pack_entity='cyls', num_buffers=5):
   logging.info("image geometry: cylinders=%d, heads=%d, sectors=%d" % geometry)
   # create from dir
   if from_dir is not None:
@@ -342,7 +331,8 @@ def mkromdisk(out_disk, geometry, from_dir=None, from_image=None,
   logging.info("generating romdisk file: %s", out_disk)
   with open(out_disk, "wb") as fh:
     hdr = gen_disk_header(geometry, img_dostype,
-                          disk_format=disk_format, boot_prio=boot_prio)
+                          disk_format=disk_format, boot_prio=boot_prio,
+                          num_buffers=num_buffers)
     fh.write(hdr)
     fh.write(out_data)
     # pad to long
@@ -395,6 +385,8 @@ def parse_args():
                       help="dostype used for image mastering with xdftool")
   parser.add_argument('-p', '--boot-prio', default=5, type=int,
                       help="boot priority for romdisk")
+  parser.add_argument('-b', '--num-buffers', default=5, type=int,
+                      help="number of buffers allocated for fs of this device")
   parser.add_argument('-f', '--format', default='raw',
                       help="disk image storage format: raw, nop, dflt, rnc, lz4")
   parser.add_argument('-v', '--verbose', default=False, action='store_true',
@@ -422,7 +414,8 @@ def main():
                      dostype=args.dostype,
                      boot_prio=args.boot_prio,
                      image_format=args.format,
-                     pack_entity=args.pack_entity)
+                     pack_entity=args.pack_entity,
+                     num_buffers=args.num_buffers)
   except IOError as e:
     logging.error("FAILED with %s", e)
     return 1

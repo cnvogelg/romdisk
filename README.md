@@ -110,6 +110,8 @@ If you run the emulator it will boot the Workbench directly from ROM...
 ## More Documents
 
 * [romdisk Examples](doc/examples.md)
+* [romdisk Benchmarks](doc/benchmarks.md)
+* [mkromdisk Manual](doc/mkromdisk.md)
 
 ## Thanks
 
