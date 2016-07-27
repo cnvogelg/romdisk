@@ -95,7 +95,10 @@ BOOL boot_init(struct DevBase *base)
         D(("got dos node=%08lx\n", dn));
         if(dn != NULL) {
           /* now add boot node */
-          ok = AddBootNode( 0, ADNF_STARTPROC, dn, cd );
+          struct DiskHeader *hdr = base->diskHeader;
+          BYTE boot_prio = (BYTE)hdr->boot_prio;
+
+          ok = AddBootNode( boot_prio, ADNF_STARTPROC, dn, cd );
           D(("add boot node=%d\n", ok));
         }
         FreeMem(paramPkt, paramSize);
