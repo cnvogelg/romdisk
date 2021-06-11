@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 #
 # mkromdisk - create romboot'able disk image
 #
@@ -9,418 +9,469 @@ import argparse
 import subprocess
 import logging
 import struct
-import StringIO
+from io import BytesIO
 import zlib
 
 
-LOG_FORMAT='%(asctime)-15s  %(levelname)-10s  %(message)s'
-DESC="create romboot'able disk image suitable for romdisk.device"
+LOG_FORMAT = "%(asctime)-15s  %(levelname)-10s  %(message)s"
+DESC = "create romboot'able disk image suitable for romdisk.device"
 
 
 def create_disk_image(temp_prefix, disk_dir, geo, dostype):
-  temp_hdf = temp_prefix + ".hdf"
-  geo_str = "chs=%d,%d,%d" % tuple(geo)
-  cmd = ['xdftool', '-f', temp_hdf, 'pack', disk_dir, dostype, geo_str]
-  # add boot block
-  cmd += ['+', 'boot', 'install']
-  logging.info("mastering image with: %s", " ".join(cmd))
-  res = subprocess.call(cmd)
-  if res != 0:
-    logging.error("Error mastering image: return code=%d", res)
-    return None
-  else:
-    return temp_hdf
+    temp_hdf = temp_prefix + ".hdf"
+    geo_str = "chs=%d,%d,%d" % tuple(geo)
+    cmd = ["xdftool", "-f", temp_hdf, "pack", disk_dir, dostype, geo_str]
+    # add boot block
+    cmd += ["+", "boot", "install"]
+    logging.info("mastering image with: %s", " ".join(cmd))
+    res = subprocess.call(cmd)
+    if res != 0:
+        logging.error("Error mastering image: return code=%d", res)
+        return None
+    else:
+        return temp_hdf
 
 
 def gen_disk_header(geo, dostype, disk_format=0, boot_prio=5, num_buffers=5):
-  io = StringIO.StringIO()
-  # tag
-  io.write("RODI")
-  # version, format
-  io.write(struct.pack(">HH", 1, disk_format))
-  # dos name
-  io.write("rom" + chr(0))
-  # geometry: cyls, heads, secs
-  io.write(struct.pack(">III", geo[0], geo[1], geo[2]))
-  # boot_prio, dostype
-  io.write(struct.pack(">iI", boot_prio, dostype))
-  # num_buffers, disk_size
-  disk_size = geo[0] * geo[1] * geo[2] * 512;
-  io.write(struct.pack(">II", num_buffers, disk_size))
-  return io.getvalue()
+    io = BytesIO()
+    # tag
+    io.write(b"RODI")
+    # version, format
+    io.write(struct.pack(">HH", 1, disk_format))
+    # dos name
+    io.write(b"rom\0")
+    # geometry: cyls, heads, secs
+    io.write(struct.pack(">III", geo[0], geo[1], geo[2]))
+    # boot_prio, dostype
+    io.write(struct.pack(">iI", boot_prio, dostype))
+    # num_buffers, disk_size
+    disk_size = geo[0] * geo[1] * geo[2] * 512
+    io.write(struct.pack(">II", num_buffers, disk_size))
+    return io.getvalue()
 
 
 def pack_rnc(raw_packs, temp_prefix):
-  # first write all raw packs as files to disk
-  n = len(raw_packs)
-  for i in xrange(n):
-    data = raw_packs[i]
-    if data is not None:
-      out_file = "%s_%03d.pak" % (temp_prefix, i)
-      # write track to temp file
-      with open(out_file, "wb") as fo:
-        fo.write(data)
-      logging.debug("wrote raw data to '%s'", out_file)
+    # first write all raw packs as files to disk
+    n = len(raw_packs)
+    for i in range(n):
+        data = raw_packs[i]
+        if data is not None:
+            out_file = "%s_%03d.pak" % (temp_prefix, i)
+            # write track to temp file
+            with open(out_file, "wb") as fo:
+                fo.write(data)
+            logging.debug("wrote raw data to '%s'", out_file)
 
-  # call ppami.exe via vamos to pack all files in one run
-  file_pat = "%s_#?.pak" % temp_prefix
-  cmd = ['vamos', 'ppami.exe', 'p', 'd', file_pat]
-  logging.debug("calling RNC packer: %s", " ".join(cmd))
-  p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-  p.communicate()
-  res = p.returncode
-  if res != 0:
-    logging.error("RNC packer failed: return code=%d")
-    return None
+    # call ppami.exe via vamos to pack all files in one run
+    file_pat = "%s_#?.pak" % temp_prefix
+    cmd = ["vamos", "ppami.exe", "p", "d", file_pat]
+    logging.debug("calling RNC packer: %s", " ".join(cmd))
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    p.communicate()
+    res = p.returncode
+    if res != 0:
+        logging.error("RNC packer failed: return code=%d", res)
+        return None
 
-  # collect generated packed files
-  out_packs = []
-  for i in xrange(n):
-    if raw_packs[i] is None:
-      out_packs.append(None)
-    else:
-      out_file = "%s_%03d.pak" % (temp_prefix, i)
-      pack_file = "%s_%03d.RNC" % (temp_prefix, i)
-      if os.path.exists(pack_file):
-        # read result
-        with open(pack_file, "rb") as fi:
-          data = fi.read()
-          out_packs.append(data)
-        logging.debug("read packed data from '%s'", pack_file)
-        # clean files
-        os.remove(pack_file)
-      else:
-        # keep raw pack
-        out_packs.append(raw_packs[i])
-        logging.debug("keep raw packet for '%s'", out_file)
-      os.remove(out_file)
-  return out_packs
+    # collect generated packed files
+    out_packs = []
+    for i in range(n):
+        if raw_packs[i] is None:
+            out_packs.append(None)
+        else:
+            out_file = "%s_%03d.pak" % (temp_prefix, i)
+            pack_file = "%s_%03d.RNC" % (temp_prefix, i)
+            if os.path.exists(pack_file):
+                # read result
+                with open(pack_file, "rb") as fi:
+                    data = fi.read()
+                    out_packs.append(data)
+                logging.debug("read packed data from '%s'", pack_file)
+                # clean files
+                os.remove(pack_file)
+            else:
+                # keep raw pack
+                out_packs.append(raw_packs[i])
+                logging.debug("keep raw packet for '%s'", out_file)
+            os.remove(out_file)
+    return out_packs
 
 
 def pack_dflt(raw_packs):
-  out_packs = []
-  for p in raw_packs:
-    if p is None:
-      out_packs.append(None)
-    else:
-      zdata = zlib.compress(p, 9)
-      # strip zlib header to get deflate stream (see RFC 1950)
-      skip = 2
-      cmf = ord(zdata[0])
-      flg = ord(zdata[1])
-      cm = cmf & 0xf
-      cinfo = cmf >> 4
-      fdict = flg & 0x20 == 0x20
-      flevel = flg >> 6
-      if fdict:
-        skip += 4
-      data = zdata[skip:-4]
-      out_packs.append(data)
-  return out_packs
+    out_packs = []
+    for p in raw_packs:
+        if p is None:
+            out_packs.append(None)
+        else:
+            zdata = zlib.compress(p, 9)
+            # strip zlib header to get deflate stream (see RFC 1950)
+            skip = 2
+            cmf = zdata[0]
+            flg = zdata[1]
+            cm = cmf & 0xF
+            cinfo = cmf >> 4
+            fdict = flg & 0x20 == 0x20
+            flevel = flg >> 6
+            if fdict:
+                skip += 4
+            data = zdata[skip:-4]
+            out_packs.append(data)
+    return out_packs
 
 
 def pack_with_files(raw_packs, temp_prefix, cmd_cb):
-  # loop over packs write them to disk and read back packed data
-  out_packs = []
-  n = len(raw_packs)
-  for i in xrange(n):
-    data = raw_packs[i]
-    if data is None:
-      out_packs.append(None)
-    else:
-      in_file = "%s_%03d.raw" % (temp_prefix, i)
-      out_file = "%s_%03d.pak" % (temp_prefix, i)
-      # write track to temp file
-      with open(in_file, "wb") as fi:
-        fi.write(data)
-      logging.debug("wrote raw data to '%s'", in_file)
+    # loop over packs write them to disk and read back packed data
+    out_packs = []
+    n = len(raw_packs)
+    for i in range(n):
+        data = raw_packs[i]
+        if data is None:
+            out_packs.append(None)
+        else:
+            in_file = "%s_%03d.raw" % (temp_prefix, i)
+            out_file = "%s_%03d.pak" % (temp_prefix, i)
+            # write track to temp file
+            with open(in_file, "wb") as fi:
+                fi.write(data)
+            logging.debug("wrote raw data to '%s'", in_file)
 
-      # now call external tool
-      ok = cmd_cb(in_file, out_file)
-      if ok:
-        # read result
-        with open(out_file, "rb") as fo:
-          data = fo.read()
-          out_packs.append(data)
-      # clean files
-      os.remove(in_file)
-      os.remove(out_file)
-      if not ok:
-        break
-  return out_packs
+            # now call external tool
+            ok = cmd_cb(in_file, out_file)
+            if ok:
+                # read result
+                with open(out_file, "rb") as fo:
+                    data = fo.read()
+                    out_packs.append(data)
+            # clean files
+            os.remove(in_file)
+            os.remove(out_file)
+            if not ok:
+                break
+    return out_packs
 
 
 def pack_lz4(raw_packs, temp_prefix):
-  cmd = ['lz4', '-9', '-q', '-f']
-  def lz4_cmd(in_file, out_file):
-    my_cmd = cmd + [in_file, out_file]
-    ret = subprocess.call(my_cmd)
-    return ret == 0
-  return pack_with_files(raw_packs, temp_prefix, lz4_cmd)
+    cmd = ["lz4", "-9", "-q", "-f"]
+
+    def lz4_cmd(in_file, out_file):
+        my_cmd = cmd + [in_file, out_file]
+        ret = subprocess.call(my_cmd)
+        return ret == 0
+
+    return pack_with_files(raw_packs, temp_prefix, lz4_cmd)
 
 
 def is_pack_empty(pack):
-  for b in pack:
-    if ord(b) != 0:
-      return False
-  return True
+    for b in pack:
+        if b != 0:
+            return False
+    return True
 
 
 def pack_image(geo, pack_entity, img_data, packer, temp_prefix="temp"):
-  # get packs either based on cyls or tracks
-  cyls, heads, secs = geo
-  if pack_entity == 'cyls':
-    num_packs = cyls
-    pack_size = heads * secs * 512
-  else:
-    num_packs = cyls * heads
-    pack_size = secs * 512
-
-  logging.info("packer=%s  pack_entity=%s -> num_packs=%d, pack_size=%d",
-               packer, pack_entity, num_packs, pack_size)
-
-  # generate raw data to be packed
-  raw_packs = []
-  off = 0
-  num_filled = 0
-  for p in xrange(num_packs):
-    # extract pack data from image
-    pack_data = img_data[off:off+pack_size]
-    if is_pack_empty(pack_data):
-      raw_packs.append(None)
+    # get packs either based on cyls or tracks
+    cyls, heads, secs = geo
+    if pack_entity == "cyls":
+        num_packs = cyls
+        pack_size = heads * secs * 512
     else:
-      raw_packs.append(pack_data)
-      num_filled += 1
-    off += pack_size
+        num_packs = cyls * heads
+        pack_size = secs * 512
 
-  # call packer
-  if num_filled > 0:
-    if packer == 'rnc':
-      out_packs = pack_rnc(raw_packs, temp_prefix)
-    elif packer == 'dflt':
-      out_packs = pack_dflt(raw_packs)
-    elif packer == 'lz4':
-      out_packs = pack_lz4(raw_packs, temp_prefix)
-    elif packer == 'nop':
-      # no packer
-      out_packs = raw_packs
+    logging.info(
+        "packer=%s  pack_entity=%s -> num_packs=%d, pack_size=%d",
+        packer,
+        pack_entity,
+        num_packs,
+        pack_size,
+    )
+
+    # generate raw data to be packed
+    raw_packs = []
+    off = 0
+    num_filled = 0
+    for p in range(num_packs):
+        # extract pack data from image
+        pack_data = img_data[off : off + pack_size]
+        if is_pack_empty(pack_data):
+            raw_packs.append(None)
+        else:
+            raw_packs.append(pack_data)
+            num_filled += 1
+        off += pack_size
+
+    # call packer
+    if num_filled > 0:
+        if packer == "rnc":
+            out_packs = pack_rnc(raw_packs, temp_prefix)
+        elif packer == "dflt":
+            out_packs = pack_dflt(raw_packs)
+        elif packer == "lz4":
+            out_packs = pack_lz4(raw_packs, temp_prefix)
+        elif packer == "nop":
+            # no packer
+            out_packs = raw_packs
+        else:
+            return None
+        if out_packs is None:
+            return None
     else:
-      return False
-    if out_packs is None:
-      return False
-  else:
-    out_packs = [None] * num_packs
+        out_packs = [None] * num_packs
 
-  # post process packs
-  total_size = 0
-  for p in xrange(num_packs):
-    data = out_packs[p]
-    if data is not None:
-      # pad pack data to long
-      size = len(data)
-      mo = size % 4
-      if mo > 0:
-        data += chr(0) * (4-mo)
-        size += 4-mo
-        out_packs[p] = data
-      # stats
-      ratio = size * 100 / pack_size
-      total_size += size
-      logging.info("pack #%d: size=%d  ratio=%.2f", p, size, ratio)
+    # post process packs
+    total_size = 0
+    for p in range(num_packs):
+        data = out_packs[p]
+        if data is not None:
+            # pad pack data to long
+            size = len(data)
+            mo = size % 4
+            if mo > 0:
+                data += b"\0" * (4 - mo)
+                size += 4 - mo
+                out_packs[p] = data
+            # stats
+            ratio = size * 100 / pack_size
+            total_size += size
+            logging.info("pack #%d: size=%d  ratio=%.2f", p, size, ratio)
 
-  # total ratio
-  img_size = len(img_data)
-  ratio = total_size * 100 / img_size
-  pack_kib = int((total_size + 1023) / 1024)
-  logging.info("disk: size=%d (%d KiB) ratio=%.2f", total_size, pack_kib, ratio)
+    # total ratio
+    img_size = len(img_data)
+    ratio = total_size * 100 / img_size
+    pack_kib = int((total_size + 1023) / 1024)
+    logging.info("disk: size=%d (%d KiB) ratio=%.2f", total_size, pack_kib, ratio)
 
-  # generate output
-  return gen_pack_data(packer, pack_size, out_packs)
+    # generate output
+    return gen_pack_data(packer, pack_size, out_packs)
 
 
 def get_packer_tag(packer):
-  p = packer.upper()
-  while len(p) < 4:
-    p = p + chr(0)
-  return p
+    p = packer.upper().encode("ASCII")
+    while len(p) < 4:
+        p = p + b"\0"
+    return p
 
 
 def gen_pack_data(packer, pack_size, pack_datas):
-  # gen header
-  io = StringIO.StringIO()
-  # tag
-  io.write("PACK")
-  # packer
-  io.write(get_packer_tag(packer))
-  # num packs, pack_Size
-  io.write(struct.pack(">II", len(pack_datas), pack_size))
-  # offsets for num_packs
-  off = 0
-  empty = 0xffffffff
-  for data in pack_datas:
-    if data is None:
-      val = empty
+    # gen header
+    io = BytesIO()
+    # tag
+    io.write(b"PACK")
+    # packer
+    io.write(get_packer_tag(packer))
+    # num packs, pack_Size
+    io.write(struct.pack(">II", len(pack_datas), pack_size))
+    # offsets for num_packs
+    off = 0
+    empty = 0xFFFFFFFF
+    for data in pack_datas:
+        if data is None:
+            val = empty
+        else:
+            val = off
+            off += len(data)
+        io.write(struct.pack(">I", val))
+    # data packs
+    for data in pack_datas:
+        if data is not None:
+            io.write(data)
+    return io.getvalue()
+
+
+def mkromdisk(
+    out_disk,
+    geometry,
+    from_dir=None,
+    from_image=None,
+    temp_prefix="temp",
+    dostype="DOS0",
+    boot_prio=5,
+    image_format="raw",
+    pack_entity="cyls",
+    num_buffers=5,
+):
+    logging.info("image geometry: cylinders=%d, heads=%d, sectors=%d" % geometry)
+    # create from dir
+    if from_dir is not None:
+        logging.info("create image from dir: %s", from_dir)
+        img = create_disk_image(temp_prefix, from_dir, geometry, dostype)
+        is_temp = True
+        if img is None:
+            return 1
+    elif from_image is not None:
+        img = from_image
+        is_temp = False
+        logging.info("using given image: %s", img)
     else:
-      val = off
-      off += len(data)
-    io.write(struct.pack(">I", val))
-  # data packs
-  for data in pack_datas:
-    if data is not None:
-      io.write(data)
-  return io.getvalue()
+        logging.error("Neither image not dir given as input!")
+        return 2
 
+    # check input image
+    if not os.path.isfile(img):
+        logging.error("can't find image file: %s", img)
+    # read image
+    with open(img, "rb") as fh:
+        img_data = fh.read()
+    # remove temp image
+    if is_temp:
+        logging.info("removing temp image: %s", img)
+        os.remove(img)
 
-def mkromdisk(out_disk, geometry, from_dir=None, from_image=None,
-              temp_prefix="temp", dostype="DOS0", boot_prio=5,
-              image_format='raw', pack_entity='cyls', num_buffers=5):
-  logging.info("image geometry: cylinders=%d, heads=%d, sectors=%d" % geometry)
-  # create from dir
-  if from_dir is not None:
-    logging.info("create image from dir: %s", from_dir)
-    img = create_disk_image(temp_prefix, from_dir, geometry, dostype)
-    is_temp = True
-    if img is None:
-      return 1
-  elif from_image is not None:
-    img = from_image
-    is_temp = False
-    logging.info("using given image: %s", img)
-  else:
-    logging.error("Neither image not dir given as input!")
-    return 2
+    # check size
+    cyls, heads, secs = geometry
+    image_size = cyls * heads * secs * 512
+    file_size = len(img_data)
+    if file_size != image_size:
+        logging.error(
+            "disk image has wrong size: expect=%d but got=%d", image_size, file_size
+        )
+        return 3
 
-  # check input image
-  if not os.path.isfile(img):
-    logging.error("can't find image file: %s", img)
-  # read image
-  with open(img, "rb") as fh:
-    img_data = fh.read()
-  # remove temp image
-  if is_temp:
-    logging.info("removing temp image: %s", img)
-    os.remove(img)
+    # extract dostype
+    img_dostype = struct.unpack_from(">I", img_data, 0)[0]
+    logging.info("dostype found: %08x %s", img_dostype, img_data[0:4])
 
-  # check size
-  cyls, heads, secs = geometry
-  image_size = cyls * heads * secs * 512
-  file_size = len(img_data)
-  if file_size != image_size:
-    logging.error("disk image has wrong size: expect=%d but got=%d",
-                  image_size, file_size)
-    return 3
+    # compress tracks or cyls?
+    if image_format == "raw":
+        out_data = img_data
+        disk_format = 0
+    elif image_format in ("rnc", "nop", "dflt", "lz4"):
+        out_data = pack_image(
+            geometry, pack_entity, img_data, image_format, temp_prefix
+        )
+        if not out_data:
+            logging.error("Packing image failed!")
+            return 6
+        disk_format = 1
+    else:
+        logging.error("Unknown storage format: %s", image_format)
+        return 4
+    if out_data is None:
+        return 5
 
-  # extract dostype
-  img_dostype = struct.unpack_from(">I", img_data, 0)[0]
-  logging.info("dostype found: %08x %s", img_dostype, img_data[0:4])
+    # generate romdisk file
+    logging.info("generating romdisk file: %s", out_disk)
+    with open(out_disk, "wb") as fh:
+        hdr = gen_disk_header(
+            geometry,
+            img_dostype,
+            disk_format=disk_format,
+            boot_prio=boot_prio,
+            num_buffers=num_buffers,
+        )
+        fh.write(hdr)
+        fh.write(out_data)
+        # pad to long
+        n = len(hdr) + len(out_data)
+        mo = n % 4
+        if mo > 0:
+            pad = b"\0" * (4 - mo)
+            fh.write(pad)
 
-  # compress tracks or cyls?
-  if image_format == 'raw':
-    out_data = img_data
-    disk_format = 0
-  elif image_format in ('rnc', 'nop', 'dflt', 'lz4'):
-    out_data = pack_image(geometry, pack_entity, img_data, image_format, temp_prefix)
-    disk_format = 1
-  else:
-    logging.error("Unknown storage format: %s", image_format)
-    return 4
-  if out_data is None:
-    return 5
-
-  # generate romdisk file
-  logging.info("generating romdisk file: %s", out_disk)
-  with open(out_disk, "wb") as fh:
-    hdr = gen_disk_header(geometry, img_dostype,
-                          disk_format=disk_format, boot_prio=boot_prio,
-                          num_buffers=num_buffers)
-    fh.write(hdr)
-    fh.write(out_data)
-    # pad to long
-    n = len(hdr) + len(out_data)
-    mo = n % 4
-    if mo > 0:
-      pad = chr(0) * (4-mo)
-      fh.write(pad)
-
-  # done
-  size = os.path.getsize(out_disk)
-  kib = int((size + 1023) / 1024)
-  logging.info("done. created romdisk image with %d bytes/%d KiB", size, kib)
-  return 0
+    # done
+    size = os.path.getsize(out_disk)
+    kib = int((size + 1023) / 1024)
+    logging.info("done. created romdisk image with %d bytes/%d KiB", size, kib)
+    return 0
 
 
 def parse_geo(geo, fmt):
-  if geo is None:
-    # default for raw is half-disk
-    if fmt == 'raw':
-      return (40,2,11)
-    # for all packed formats the default is full DD disk
+    if geo is None:
+        # default for raw is half-disk
+        if fmt == "raw":
+            return (40, 2, 11)
+        # for all packed formats the default is full DD disk
+        else:
+            return (80, 2, 11)
+    elif geo == "adf":
+        return (80, 2, 11)
+    elif geo == "mini":  # mini disk image
+        return (40, 2, 11)
     else:
-      return (80,2,11)
-  elif geo == 'adf':
-    return (80,2,11)
-  elif geo == 'mini': # mini disk image
-    return (40,2,11)
-  else:
-    disk_geo=map(int,geo.split(","))
-    assert len(disk_geo) == 3
-    return disk_geo
+        disk_geo = list(map(int, geo.split(",")))
+        assert len(disk_geo) == 3
+        return disk_geo
 
 
 def parse_args():
-  """parse args and return (args, opts)"""
-  parser = argparse.ArgumentParser(description=DESC)
+    """parse args and return (args, opts)"""
+    parser = argparse.ArgumentParser(description=DESC)
 
-  # global options
-  parser.add_argument('out_disk', help="disk image to be created")
-  parser.add_argument('-d', '--dir', default=None,
-                      help="create romdisk image from given directory")
-  parser.add_argument('-i', '--image', default=None,
-                      help="create romdisk image from given disk image")
-  parser.add_argument('-t', '--temp-prefix', default="temp",
-                      help="prefix for intermediate files")
-  parser.add_argument('-g', '--geometry', default=None,
-                      help="disk image geometry (cylinders, heads, sectors)")
-  parser.add_argument('-D', '--dostype', default="ffs",
-                      help="dostype used for image mastering with xdftool")
-  parser.add_argument('-p', '--boot-prio', default=5, type=int,
-                      help="boot priority for romdisk")
-  parser.add_argument('-b', '--num-buffers', default=5, type=int,
-                      help="number of buffers allocated for fs of this device")
-  parser.add_argument('-f', '--format', default='raw',
-                      help="disk image storage format: raw, nop, dflt, rnc, lz4")
-  parser.add_argument('-v', '--verbose', default=False, action='store_true',
-                      help="be more verbose")
-  parser.add_argument('-e', '--pack-entity', default='tracks',
-                      help="what to pack: 'cyls' or 'tracks'")
+    # global options
+    parser.add_argument("out_disk", help="disk image to be created")
+    parser.add_argument(
+        "-d", "--dir", default=None, help="create romdisk image from given directory"
+    )
+    parser.add_argument(
+        "-i", "--image", default=None, help="create romdisk image from given disk image"
+    )
+    parser.add_argument(
+        "-t", "--temp-prefix", default="temp", help="prefix for intermediate files"
+    )
+    parser.add_argument(
+        "-g",
+        "--geometry",
+        default=None,
+        help="disk image geometry (cylinders, heads, sectors)",
+    )
+    parser.add_argument(
+        "-D",
+        "--dostype",
+        default="ffs",
+        help="dostype used for image mastering with xdftool",
+    )
+    parser.add_argument(
+        "-p", "--boot-prio", default=5, type=int, help="boot priority for romdisk"
+    )
+    parser.add_argument(
+        "-b",
+        "--num-buffers",
+        default=5,
+        type=int,
+        help="number of buffers allocated for fs of this device",
+    )
+    parser.add_argument(
+        "-f",
+        "--format",
+        default="raw",
+        help="disk image storage format: raw, nop, dflt, rnc, lz4",
+    )
+    parser.add_argument(
+        "-v", "--verbose", default=False, action="store_true", help="be more verbose"
+    )
+    parser.add_argument(
+        "-e", "--pack-entity", default="tracks", help="what to pack: 'cyls' or 'tracks'"
+    )
 
-  return parser.parse_args()
+    return parser.parse_args()
 
 
 def main():
-  # parse args and init logging
-  args = parse_args()
-  # setup logging
-  level = logging.DEBUG if args.verbose else logging.INFO
-  logging.basicConfig(format=LOG_FORMAT, level=level)
-  # extract disk geo
-  try:
-    geo = parse_geo(args.geometry, args.format)
-    return mkromdisk(args.out_disk,
-                     from_dir=args.dir,
-                     from_image=args.image,
-                     temp_prefix=args.temp_prefix,
-                     geometry=geo,
-                     dostype=args.dostype,
-                     boot_prio=args.boot_prio,
-                     image_format=args.format,
-                     pack_entity=args.pack_entity,
-                     num_buffers=args.num_buffers)
-  except IOError as e:
-    logging.error("FAILED with %s", e)
-    return 1
+    # parse args and init logging
+    args = parse_args()
+    # setup logging
+    level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(format=LOG_FORMAT, level=level)
+    # extract disk geo
+    try:
+        geo = parse_geo(args.geometry, args.format)
+        return mkromdisk(
+            args.out_disk,
+            from_dir=args.dir,
+            from_image=args.image,
+            temp_prefix=args.temp_prefix,
+            geometry=geo,
+            dostype=args.dostype,
+            boot_prio=args.boot_prio,
+            image_format=args.format,
+            pack_entity=args.pack_entity,
+            num_buffers=args.num_buffers,
+        )
+    except IOError as e:
+        logging.error("FAILED with %s", e)
+        return 1
 
 
 # ----- entry point -----
-if __name__ == '__main__':
-  sys.exit(main())
+if __name__ == "__main__":
+    sys.exit(main())
