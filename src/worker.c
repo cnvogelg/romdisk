@@ -1,6 +1,6 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
-#include <proto/alib.h>
+#include <clib/alib_protos.h>
 
 #include <exec/types.h>
 #include <dos/dostags.h>

@@ -4,6 +4,9 @@ FLAVOR?=_dbg
 BUILD_DIR=BUILD
 OBJ_DIR=$(BUILD_DIR)/obj$(FLAVOR)
 
+# NDK directory
+NDK_DIR?=$(HOME)/projects/amidev/ndk_3.9
+
 # what flavors to build
 FLAVORS=_rel _dbg _rel_td _dbg_td
 
@@ -36,16 +39,15 @@ CDEFINES+=-DMYDEV_DATE=$(QUOTE)$(PROJECT_DATE)$(QUOTE)
 CDEFINES+=-DMYDEV_NAME=$(QUOTE)$(DEV_NAME)$(QUOTE)
 CDEFINES+=-DMYDEV_WORKER=$(QUOTE)romdisk$(QUOTE)
 
-# toolchain dir
-# uses default dir of https://github.com/cahirwpz/amigaos-cross-toolchain
-TC_DIR=/opt/m68k-amigaos
-
 # cross compiler/assembler setup
-CC=vc
-CFLAGS=-c99 -g -sc $(CDEFINES) $(OPTFLAGS)
-LDFLAGS=-g -nostdlib -lvcs -lamiga
+CC=vc +aos68k
+# make sure to prepend VBCC includes before NDK so VBCC's 'proto' is used
+CFLAGS=-c99 -g -sc -I$(VBCC)/targets/m68k-amigaos/include/
+CFLAGS+=-I$(NDK_DIR)/include/include_h $(CDEFINES) $(OPTFLAGS)
+LD=vc +aos68k
+LDFLAGS=-g -sc -nostdlib -lamiga -lvcs
 AS=vasmm68k_mot
-ASFLAGS=-quiet -Fhunk -I$(TC_DIR)/os-include -m68000
+ASFLAGS=-quiet -Fhunk -I$(NDK_DIR)/include/include_i -m68000
 
 SRCS=device.c disk.c mydev.c worker.c unpack.c
 ASRCS=rnc.s inflate.s lz4.s
@@ -82,7 +84,7 @@ flavors:
 	@echo "---- done flavors: $(FLAVORS) -----"
 
 $(DEVICE): $(OBJS)
-	vc $^ -o $@ $(LDFLAGS)
+	$(LD) $^ -o $@ $(LDFLAGS)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
